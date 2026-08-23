@@ -1,0 +1,163 @@
+Remove what ZTARC does not have.
+
+Three things upstream offers that we cannot honour, and which a string
+substitution cannot fix because they are structure, not wording:
+
+  * "Pangolin Cloud" — there is no ZTARC hosted service. The button is hidden
+    in updateUI rather than deleted, so the state machine around it is
+    untouched and an upstream rewrite of that machine still applies cleanly.
+  * An empty server field — the console is the only way in, so it is prefilled
+    from config.DefaultHostname.
+  * Terms of Service and Privacy Policy links, in the login window and the
+    About tab — ztarc.io has no such pages, and a link that 404s is worse than
+    no link. Their declarations go with them, or Go rejects the unused
+    variables.
+  * "Install CLI" — the binary behind it is the upstream vendor's, fetched from
+    their GitHub releases. Renaming the menu entry would have been the dishonest
+    fix; it stays hidden until ZTARC has a CLI of its own.
+
+Applied by scripts/rebrand.sh before the sed rules, so the context lines here
+match pristine upstream. If fosrl rewrites either file this fails loudly, which
+is the intent: the alternative is "Pangolin Cloud" quietly reappearing.
+
+--- a/ui/login_window.go
++++ b/ui/login_window.go
+@@ -162,7 +162,7 @@
+ 	// State variables
+ 	currentState := stateHostingSelection
+ 	hostingOpt := hostingNone
+-	selfHostedURL := ""
++	selfHostedURL := config.DefaultHostname
+ 	isLoggingIn := false
+ 	hasAutoOpenedBrowser := false
+ 	loginSucceeded := false
+@@ -188,8 +188,6 @@
+ 	var progressBar *walk.ProgressBar
+ 	var backButton, cancelButton, loginButton *walk.PushButton
+ 	var logoContainer *walk.Composite
+-	var termsLabel, andLabel *walk.Label
+-	var termsLinkLabel, privacyLinkLabel *walk.LinkLabel
+ 	var termsComposite *walk.Composite
+ 
+ 	isReadyToLogin := func() bool {
+@@ -232,7 +230,9 @@
+ 			showDeviceAuthCode := currentState == stateDeviceAuthCode
+ 
+ 			if cloudButton != nil {
+-				cloudButton.SetVisible(showHostingSelection)
++				// ZTARC has no hosted service. The only way in is an
++				// organisation’s own console, so there is no choice to offer.
++				cloudButton.SetVisible(false)
+ 			}
+ 			if selfHostedButton != nil {
+ 				selfHostedButton.SetVisible(showHostingSelection)
+@@ -528,45 +528,6 @@
+ 						},
+ 					},
+ 				},
+-			},
+-			// Terms and Privacy notice
+-			Composite{
+-				AssignTo: &termsComposite,
+-				Layout:   HBox{MarginsZero: true, Alignment: AlignHCenterVCenter, Spacing: 0},
+-				Children: []Widget{
+-					Label{
+-						AssignTo:  &termsLabel,
+-						Text:      "By continuing, you agree to our ",
+-						Font:      Font{PointSize: 8},
+-						Alignment: AlignHNearVCenter,
+-						TextColor: walk.RGB(0x80, 0x80, 0x80), // Secondary gray color
+-					},
+-					LinkLabel{
+-						AssignTo:  &termsLinkLabel,
+-						Text:      `<a href="https://pangolin.net/tos">Terms of Service</a>`,
+-						Font:      Font{PointSize: 8},
+-						Alignment: AlignHNearVCenter,
+-						OnLinkActivated: func(link *walk.LinkLabelLink) {
+-							openBrowser("https://pangolin.net/tos")
+-						},
+-					},
+-					Label{
+-						AssignTo:  &andLabel,
+-						Text:      " and ",
+-						Font:      Font{PointSize: 8},
+-						Alignment: AlignHNearVCenter,
+-						TextColor: walk.RGB(0x80, 0x80, 0x80), // Secondary gray color
+-					},
+-					LinkLabel{
+-						AssignTo:  &privacyLinkLabel,
+-						Text:      `<a href="https://pangolin.net/privacy">Privacy Policy</a>.`,
+-						Font:      Font{PointSize: 8},
+-						Alignment: AlignHNearVCenter,
+-						OnLinkActivated: func(link *walk.LinkLabelLink) {
+-							openBrowser("https://pangolin.net/privacy")
+-						},
+-					},
+-				},
+ 			},
+ 			// Buttons at bottom
+ 			Composite{
+--- a/ui/preferences/about_tab.go
++++ b/ui/preferences/about_tab.go
+@@ -150,38 +150,6 @@
+ 		browser.OpenURL("https://docs.pangolin.net/about/how-pangolin-works")
+ 	})
+ 
+-	// Legal section
+-	legalSectionLabel, err := walk.NewLabel(contentContainer)
+-	if err != nil {
+-		return nil, err
+-	}
+-	legalSectionLabel.SetText("Legal")
+-	if sectionFont != nil {
+-		legalSectionLabel.SetFont(sectionFont)
+-	}
+-	legalSectionLabel.SetAlignment(walk.AlignHNearVNear)
+-
+-	// Terms of Service link
+-	termsLinkLabel, err := walk.NewLinkLabel(contentContainer)
+-	if err != nil {
+-		return nil, err
+-	}
+-	termsLinkLabel.SetText(`<a href="https://pangolin.net/tos">Terms of Service</a>`)
+-	termsLinkLabel.SetAlignment(walk.AlignHNearVNear)
+-	termsLinkLabel.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
+-		browser.OpenURL("https://pangolin.net/tos")
+-	})
+-
+-	// Privacy Policy link
+-	privacyLinkLabel, err := walk.NewLinkLabel(contentContainer)
+-	if err != nil {
+-		return nil, err
+-	}
+-	privacyLinkLabel.SetText(`<a href="https://pangolin.net/privacy">Privacy Policy</a>`)
+-	privacyLinkLabel.SetAlignment(walk.AlignHNearVNear)
+-	privacyLinkLabel.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
+-		browser.OpenURL("https://pangolin.net/privacy")
+-	})
+ 
+ 	// Add spacer to fill remaining space
+ 	walk.NewVSpacer(contentContainer)
+--- a/ui/tray.go
++++ b/ui/tray.go
+@@ -779,14 +779,16 @@
+ 			updateAction.SetVisible(hasUpdateLocal)
+ 		}
+ 
+-		cliInstalledMutex.RLock()
+-		cliInstalledLocal := cliInstalled
+-		cliInstalledMutex.RUnlock()
+ 		cliInstallInProgressM.Lock()
+ 		cliInstallRunning := cliInstallInProgress
+ 		cliInstallInProgressM.Unlock()
+ 		if cliInstallAction != nil {
+-			cliInstallAction.SetVisible(!cliInstalledLocal)
++			// The CLI this would fetch is the upstream vendor's, published
++			// under their name on GitHub. ZTARC does not ship a CLI, so the
++			// entry stays hidden rather than offering someone else's. The
++			// three lines that read cliInstalled go with it — Go rejects the
++			// variable once nothing consults it.
++			cliInstallAction.SetVisible(false)
+ 			cliInstallAction.SetEnabled(!cliInstallRunning)
+ 			if cliInstallRunning {
+ 				cliInstallAction.SetText("Installing CLI…")

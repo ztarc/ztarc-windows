@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ZTARC installer definition, adapted from the upstream .wxs of the same name.
+
+  Every GUID below is newly generated, and that is not housekeeping. UpgradeCode
+  is how Windows Installer decides two packages are the same product: keeping the
+  upstream vendor's would make this MSI a declared upgrade of their client, and
+  let it remove someone else's software. The Component GUIDs are new for the
+  matching reason — a component identity is a promise about a fixed install path,
+  and every path here has changed.
+
+  (The words this comment cannot spell are the upstream product's; see
+  scripts/audit-brand.sh, which refuses to build anything still carrying them.)
+
+  Version comes from brand/overrides/version/version.go; scripts/rebrand.sh
+  substitutes it, so the number is not written twice.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="ZTARC"
+           Language="1033"
+           Version="@@VERSION@@"
+           Manufacturer="ZTARC"
+           UpgradeCode="A2E95935-2321-432A-AAD7-4746B0D4098F"
+           Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="ZTARC">
+        <Component Id="ZtarcExe" Guid="3C49A51A-55D8-437B-B17C-0B670EAEA398">
+          <File Id="ZtarcExe"
+                Source="$(var.BuildDir)/ZTARC.exe"
+                KeyPath="yes" />
+          <ServiceInstall Id="ZtarcManagerInstall"
+                          Name="ZTARCManager"
+                          DisplayName="ZTARC Manager"
+                          Description="ZTARC Manager Service"
+                          Type="ownProcess"
+                          Start="auto"
+                          ErrorControl="normal"
+                          Arguments="/managerservice"
+                          Vital="yes" />
+          <ServiceControl Id="ZtarcManagerControl"
+                          Name="ZTARCManager"
+                          Start="install"
+                          Stop="both"
+                          Remove="uninstall"
+                          Wait="yes" />
+        </Component>
+        <Component Id="WintunDll" Guid="2C2478A3-03FE-475B-B64E-7627EC6DEFBD">
+          <File Id="WintunDll"
+                Source="$(var.ProjectDir)/dll/wintun.dll"
+                KeyPath="yes" />
+        </Component>
+        <Directory Id="IconsFolder" Name="icons">
+          <Component Id="IconOrange" Guid="C4E53048-A2A6-45D5-8D2B-DADCFA713ED8">
+            <File Id="IconOrange"
+                  Source="$(var.ProjectDir)/icons/icon-orange.ico"
+                  KeyPath="yes" />
+            <RemoveFolder Id="IconsFolder" On="uninstall" />
+          </Component>
+          <Component Id="IconGray" Guid="232D68AF-FE5D-4863-A85C-F85D7E93DC59">
+            <File Id="IconGray"
+                  Source="$(var.ProjectDir)/icons/icon-gray.ico"
+                  KeyPath="yes" />
+          </Component>
+          <Component Id="WordMarkBlack" Guid="C4B8D876-39FD-4E9B-A002-2235C90BA3C0">
+            <File Id="WordMarkBlack"
+                  Source="$(var.ProjectDir)/icons/word_mark_black.png"
+                  KeyPath="yes" />
+          </Component>
+          <Component Id="WordMarkWhite" Guid="9EFCFB39-64D3-4EBD-8827-5C99C83AE5EC">
+            <File Id="WordMarkWhite"
+                  Source="$(var.ProjectDir)/icons/word_mark_white.png"
+                  KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="75D2B58B-1A7F-4903-B49D-933B348029EC">
+        <Shortcut Id="DesktopShortcut"
+                  Name="ZTARC"
+                  Description="ZTARC"
+                  Target="[INSTALLFOLDER]ZTARC.exe"
+                  Icon="ProductIcon" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\ZTARC\ZTARC"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="ZTARC">
+        <Component Id="StartMenuShortcut" Guid="7C9DD9C8-7E62-4D81-8D8D-93EC379D2A1B">
+          <Shortcut Id="StartMenuShortcut"
+                    Name="ZTARC"
+                    Description="ZTARC"
+                    Target="[INSTALLFOLDER]ZTARC.exe"
+                    Icon="ProductIcon" />
+          <RemoveFolder Id="ProgramMenuDir" On="uninstall" />
+          <RegistryValue Root="HKCU"
+                         Key="Software\ZTARC\ZTARC"
+                         Name="StartMenuShortcut"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="ProductFeature" Title="ZTARC" Level="1">
+      <ComponentRef Id="ZtarcExe" />
+      <ComponentRef Id="WintunDll" />
+      <ComponentRef Id="IconOrange" />
+      <ComponentRef Id="IconGray" />
+      <ComponentRef Id="WordMarkBlack" />
+      <ComponentRef Id="WordMarkWhite" />
+      <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <Icon Id="ProductIcon" SourceFile="$(var.ProjectDir)/icons/icon-orange.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+
+    <!--
+      Upstream clears a manager service that an older build registered at
+      runtime rather than through the MSI. ZTARC has never shipped such a build,
+      so there is nothing orphaned to clean up and the custom action is dropped
+      along with its dependency on WixToolset.Util.wixext.
+    -->
+  </Package>
+</Wix>
