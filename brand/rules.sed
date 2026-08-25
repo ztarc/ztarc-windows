@@ -56,3 +56,8 @@ s|PANGOLIN_ALLOW_DEV_UPDATES|ZTARC_ALLOW_DEV_UPDATES|g
 s|"ZTARC: pangolin-windows"|"ZTARC: ztarc-windows"|g
 s|(pangolin format)|(upstream format)|g
 s|'pangolin' command|'ztarc' command|g
+
+# Icons are read from disk at runtime, so a bare .exe shows a blank tray icon.
+# resolveIconsPath (brand/overrides/config/icons_path.go) looks beside the
+# executable first. scripts/audit-brand.sh asserts this rule still matches.
+s|return filepath\.Join(os\.Getenv("PROGRAMFILES"), AppName, "icons")|return resolveIconsPath()|

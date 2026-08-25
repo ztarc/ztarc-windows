@@ -45,6 +45,7 @@ find "$DST" -name '*.go' -print0 | xargs -0 sed -i -f "$ROOT/brand/rules.sed"
 echo "override"
 cp "$ROOT/brand/overrides/version/version.go"     "$DST/version/version.go"
 cp "$ROOT/brand/overrides/updater/constants.go"   "$DST/updater/constants.go"
+cp "$ROOT/brand/overrides/config/icons_path.go"   "$DST/config/icons_path.go"
 cp "$ROOT/brand/overrides/ztarc.manifest"         "$DST/ztarc.manifest"
 rm -f "$DST/pangolin.manifest" "$DST/pangolin.wxs"
 

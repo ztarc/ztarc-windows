@@ -9,6 +9,7 @@ and rebranded at build time.
 ```bash
 git submodule update --init
 make build          # → build/ZTARC.exe
+make msi            # → build/ztarc-amd64-0.14.0.1.msi   (see Installer)
 make icons          # regenerate brand/icons from the logo (rarely needed)
 make upstream-version
 ```
@@ -102,6 +103,61 @@ make build          # the audit and the patches will say if anything drifted
 git add upstream brand/overrides/version/version.go && git commit
 ```
 
+## Installer
+
+`make build` produces an executable, not an installer, and running that
+executable directly is not a supported deployment. Two things only the MSI does:
+
+- **Registers the `ZTARCManager` service.** Creating a WinTun adapter needs
+  administrator rights; without the service the tunnel cannot come up.
+- **Places `icons/` next to the executable.** The tray icon and the login
+  window's word mark are read from disk at runtime, not embedded — see below.
+
+WiX v4+ is a .NET tool, so the MSI builds on Linux like everything else here:
+
+```bash
+sudo dnf install dotnet-sdk-8.0
+dotnet tool install --global wix          # then put ~/.dotnet/tools on PATH
+```
+
+`upstream/dll/wintun.dll` is **not in the repo** and the build refuses to
+continue without it. It is WireGuard LLC's signed binary and it ships inside our
+installer, so take it from the source and check it:
+
+```bash
+curl -O https://www.wintun.net/builds/wintun-0.14.1.zip
+sha256sum wintun-0.14.1.zip
+# expect 07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51
+unzip -j wintun-0.14.1.zip 'wintun/bin/amd64/wintun.dll' -d upstream/dll/
+```
+
+The output is named `ztarc-amd64-<version>.msi` because that is the pattern
+`updater/versions.go` looks for, so releases are shaped correctly even while
+auto-update is off.
+
+Still missing: an Authenticode signature. Until there is a code-signing
+certificate, SmartScreen warns every person who runs the installer.
+
+## Why the tray icon is a file, not a resource
+
+The icon compiled into `ZTARC.exe` is only the one Explorer shows for the file
+itself. The **tray** icon, the two connection states, and the login window's word
+mark are loaded at runtime from `GetIconsPath()` — upstream's
+`%PROGRAMFILES%\<AppName>\icons`. Copy the `.exe` somewhere on its own and it
+runs with a blank tray icon and an empty login header, which reads as a broken
+build rather than a missing folder.
+
+`brand/overrides/config/icons_path.go` makes it look beside the executable first.
+For an installed client that is the same directory, so nothing about a real
+installation changes; what it buys is that the build output can be copied to a
+test VM as-is. Only image files are read through that path, never a DLL, so it is
+not a search order that code can be planted in.
+
+That substitution is one of the entries `scripts/audit-brand.sh` asserts must
+still be present. A rule that stops matching leaves no upstream name behind to
+find, so the forbidden-word check cannot catch it — the tree would compile, still
+say ZTARC everywhere, and silently lose the fix.
+
 ## What still needs Windows
 
 Compiling does not. Three later steps do:
@@ -109,7 +165,7 @@ Compiling does not. Three later steps do:
 | Step | Needs | Note |
 |---|---|---|
 | **Run / test** | real Windows | it creates a WinTun adapter and a service — nothing to emulate on Linux |
-| **MSI installer** | WiX Toolset | `brand/overrides/ztarc.wxs` is ready; `dll/wintun.dll` is **not in the repo** and must be fetched from wintun.net first |
+| **MSI installer** | nothing — builds here | `make msi`, once `wix` and `wintun.dll` are in place. See Installer above |
 | **Authenticode signing** | a code-signing certificate | unsigned, SmartScreen warns every user |
 
 For running and testing, this machine already has `ghcr.io/dockur/windows` and
