@@ -9,10 +9,12 @@ and rebranded at build time.
 ```bash
 git submodule update --init
 make build          # → build/ZTARC.exe
-make msi            # → build/ztarc-amd64-0.14.0.1.msi   (see Installer)
+make version        # 0.14.0.1
 make icons          # regenerate brand/icons from the logo (rarely needed)
 make upstream-version
 ```
+
+`make msi` exists but only runs on Windows — see Installer.
 
 Requires Go ≥ 1.25 and nothing else. **No Windows machine, VM, or Windows
 container is involved**: the client is pure Go (no cgo — the Win32 API is reached
@@ -113,30 +115,44 @@ executable directly is not a supported deployment. Two things only the MSI does:
 - **Places `icons/` next to the executable.** The tray icon and the login
   window's word mark are read from disk at runtime, not embedded — see below.
 
-WiX v4+ is a .NET tool, so the MSI builds on Linux like everything else here:
+**The MSI is built by `.github/workflows/msi.yml` on a Windows runner, and it
+cannot be built here.** That is not a preference. WiX ships as a .NET tool and
+installs happily on Linux, but it is not cross-platform:
 
-```bash
-sudo dnf install dotnet-sdk-8.0
-dotnet tool install --global wix          # then put ~/.dotnet/tools on PATH
+```csharp
+// BundleValidator.GetCanonicalRelativePath
+const string root = @"C:\";
+var normalizedPath = Path.GetFullPath(root + relativePath);  // on Linux: "/cwd/C:\ZTARC"
+if (normalizedPath.StartsWith(root))                         // → false, always
 ```
 
-`upstream/dll/wintun.dll` is **not in the repo** and the build refuses to
-continue without it. It is WireGuard LLC's signed binary and it ships inside our
-installer, so take it from the source and check it:
+The drive letter is hardcoded, so **every** `Directory/@Name` is rejected as
+"not a relative path" — verified against a minimal one-directory `.wxs`, in
+v5, v6 and v7 alike. `ShortName` is not a way around it (`WIX0037` requires
+`Name`). WiX prints *"The WiX Toolset only supports Windows. All behavior after
+this point is undefined"* on startup and means it, which is also why building
+the artifact that installs a service and a driver DLL onto other people's
+machines with a knowingly-unsupported toolchain would be the wrong trade even if
+the bug were worked around.
 
-```bash
-curl -O https://www.wintun.net/builds/wintun-0.14.1.zip
-sha256sum wintun-0.14.1.zip
-# expect 07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51
-unzip -j wintun-0.14.1.zip 'wintun/bin/amd64/wintun.dll' -d upstream/dll/
-```
+The CI job runs the same `scripts/` the Makefile does, so it cannot compile
+something different from what a developer builds locally. It is also where
+Authenticode signing will belong once there is a certificate. Until then
+SmartScreen warns every person who runs the installer.
 
-The output is named `ztarc-amd64-<version>.msi` because that is the pattern
-`updater/versions.go` looks for, so releases are shaped correctly even while
-auto-update is off.
+WiX is pinned to **5.0.2**, the last release before the
+[Open Source Maintenance Fee](https://github.com/orgs/wixtoolset/discussions/9239).
+v6 introduced the fee and v7 refuses to run until its EULA is accepted, which
+for an organisation earning over $10k/yr means sponsoring the wixtoolset
+project. Moving off 5.0.2 is a licensing decision to make deliberately, not a
+version bump.
 
-Still missing: an Authenticode signature. Until there is a code-signing
-certificate, SmartScreen warns every person who runs the installer.
+`wintun.dll` is deliberately not vendored. It is WireGuard LLC's signed binary
+and it ships inside our installer, so it comes from its own source with its hash
+checked — `scripts/fetch-wintun.sh`, run by CI and available locally as
+`make wintun`. Upstream omits it for the same reason; `upstream/dll/` holds only
+a README, and upstream's `.gitignore` covers `*.dll`, so fetching it there does
+not dirty the submodule.
 
 ## Why the tray icon is a file, not a resource
 
@@ -165,7 +181,7 @@ Compiling does not. Three later steps do:
 | Step | Needs | Note |
 |---|---|---|
 | **Run / test** | real Windows | it creates a WinTun adapter and a service — nothing to emulate on Linux |
-| **MSI installer** | nothing — builds here | `make msi`, once `wix` and `wintun.dll` are in place. See Installer above |
+| **MSI installer** | a Windows runner | `.github/workflows/msi.yml`. WiX does not run on Linux — see Installer above |
 | **Authenticode signing** | a code-signing certificate | unsigned, SmartScreen warns every user |
 
 For running and testing, this machine already has `ghcr.io/dockur/windows` and

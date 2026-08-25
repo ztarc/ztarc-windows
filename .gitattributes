@@ -1,0 +1,15 @@
+# The MSI is built on a GitHub windows runner, which checks the tree out with
+# Git for Windows. Left to autocrlf, every script here would arrive with CRLF
+# line endings and fail as `/usr/bin/env: 'bash\r': No such file or directory` —
+# a failure that names the wrong thing and wastes an afternoon.
+*.sh text eol=lf
+Makefile text eol=lf
+*.sed text eol=lf
+*.patch text eol=lf
+
+# Binary assets, so git never tries to translate them.
+*.ico binary
+*.png binary
+*.dll binary
+*.msi binary
+*.exe binary

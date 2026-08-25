@@ -1,0 +1,88 @@
+# Build the ZTARC Windows client and its installer.
+#
+# The executable cross-compiles on Linux and does so in `make build`; this job
+# exists for the MSI, which cannot be built anywhere else. WiX hardcodes `C:\`
+# in BundleValidator.GetCanonicalRelativePath and validates it with
+# Path.GetFullPath, so on Linux every Directory/@Name is rejected — a minimal
+# one-directory .wxs fails exactly as ours does. It prints "The WiX Toolset only
+# supports Windows. All behavior after this point is undefined" and means it.
+#
+# This is also where Authenticode signing will belong once there is a
+# certificate, which is the other reason to put the release build here rather
+# than in a local VM.
+#
+# Every step calls the same scripts/ that the Makefile calls. Duplicating the
+# build here would let CI and a developer's machine produce different binaries
+# without either noticing.
+
+name: msi
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # upstream/ is the whole source; without it there is nothing to brand.
+          submodules: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: upstream/go.mod
+
+      # Pinned to 5.0.2 on purpose. v6 introduced the Open Source Maintenance
+      # Fee and v7 refuses to run until its EULA is accepted, which for an
+      # organisation over $10k/yr means sponsoring the wixtoolset project.
+      # Moving off this version is a licensing decision, not a version bump.
+      - name: Install WiX
+        run: dotnet tool install --global wix --version 5.0.2
+
+      # Not vendored: it is WireGuard LLC's signed binary and it ships inside
+      # our installer, so it comes from its own source with its hash checked.
+      - name: Fetch wintun.dll
+        run: ./scripts/fetch-wintun.sh
+
+      - name: Stage the ZTARC branding
+        run: ./scripts/rebrand.sh
+
+      # The gate, not a formality: a substitution that stops matching after an
+      # upstream bump leaves a binary that calls itself by the wrong name, and
+      # nothing else would notice.
+      - name: Brand audit
+        run: ./scripts/audit-brand.sh
+
+      - name: Build ZTARC.exe
+        run: ./scripts/build-exe.sh
+
+      - name: Build the installer
+        run: ./scripts/build-msi.sh
+
+      - name: Report what was built
+        run: |
+          version="$(. ./scripts/version.sh && ztarc_version brand/overrides/version/version.go)"
+          echo "### ZTARC $version" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -la build/*.exe build/*.msi >> "$GITHUB_STEP_SUMMARY"
+          sha256sum build/*.exe build/*.msi >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ztarc-windows
+          # The installer is the deliverable; the bare .exe is here because it
+          # is what you copy to a VM to look at a UI change without installing.
+          path: |
+            build/*.msi
+            build/ZTARC.exe
+          if-no-files-found: error

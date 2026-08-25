@@ -55,10 +55,9 @@ cp "$ROOT"/brand/icons/* "$DST/icons/"
 
 # The version lives in exactly one place — version.go — and is read back out
 # here so the installer and the executable's own properties cannot drift from it.
-version="$(sed -n 's/.*Upstream[[:space:]]*=[[:space:]]*"\([0-9.]*\)".*/\1/p' "$ROOT/brand/overrides/version/version.go")"
-build="$(sed -n 's/.*Build[[:space:]]*=[[:space:]]*"\([0-9]*\)".*/\1/p' "$ROOT/brand/overrides/version/version.go")"
-full="$version.$build"
-[ -n "$version" ] && [ -n "$build" ] || { echo "cannot read version from version.go" >&2; exit 1; }
+# shellcheck source=scripts/version.sh
+. "$ROOT/scripts/version.sh"
+full="$(ztarc_version "$ROOT/brand/overrides/version/version.go")"
 
 sed "s|@@VERSION@@|$full|" "$ROOT/brand/overrides/ztarc.wxs" > "$DST/ztarc.wxs"
 
