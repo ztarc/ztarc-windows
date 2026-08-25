@@ -31,10 +31,18 @@ cp -a "$SRC" "$DST"
 rm -rf "$DST/.git" "$DST/build" "$DST/rsrc.syso"
 
 # 1. Structural changes.
+#
+# Applied from the repository root with --directory, NOT with `git -C build/src`.
+# build/src is inside this work tree, so `git apply` there resolves paths against
+# the repository root rather than the current directory: it looks for
+# ui/login_window.go beside this script, finds nothing to do, and exits 0. The
+# patches silently stopped being applied and the binary shipped with the upstream
+# cloud button and dead legal links still in it. scripts/audit-brand.sh now
+# asserts each patch's result, because "it exited 0" proved to mean nothing.
 for patch in "$ROOT"/brand/patches/*.patch; do
     [ -e "$patch" ] || continue
     echo "patch  $(basename "$patch")"
-    git -C "$DST" apply --unsafe-paths --directory=. -p1 "$patch"
+    git -C "$ROOT" apply --directory="build/src" -p1 "$patch"
 done
 
 # 2. String substitutions across every Go file.
@@ -52,6 +60,19 @@ rm -f "$DST/pangolin.manifest" "$DST/pangolin.wxs"
 # 4. Assets, and the version the installer must agree with.
 echo "assets"
 cp "$ROOT"/brand/icons/* "$DST/icons/"
+
+# The licence travels with the binary. AGPL-3 conveys with the program, and
+# wintun's terms forbid removing its notices — so both are installed beside the
+# executable rather than left in a repository the person who runs the installer
+# may never see. Named .txt so Windows opens them in Notepad on a double click.
+cp "$ROOT/LICENSE" "$DST/LICENSE.txt"
+cp "$ROOT/NOTICE"  "$DST/NOTICE.txt"
+# Absent until scripts/fetch-wintun.sh has run; the executable builds without it
+# and only the installer needs it, so this is not fatal here. scripts/build-msi.sh
+# is where its absence stops the build.
+if [ -f "$ROOT/third-party/wintun-LICENSE.txt" ]; then
+    cp "$ROOT/third-party/wintun-LICENSE.txt" "$DST/dll/wintun-LICENSE.txt"
+fi
 
 # The version lives in exactly one place — version.go — and is read back out
 # here so the installer and the executable's own properties cannot drift from it.

@@ -53,6 +53,28 @@
                 Source="$(var.ProjectDir)/dll/wintun.dll"
                 KeyPath="yes" />
         </Component>
+        <!--
+          The licences are installed, not merely kept in the repository. This
+          program is AGPL-3 and is conveyed in binary form, and wintun's terms
+          forbid removing its notices from what is redistributed; the person who
+          runs the installer is the one entitled to both, and they may never see
+          a git repository.
+        -->
+        <Component Id="LicenseTxt" Guid="EA91DDE3-2C10-4CC7-AB6E-58E6597C2941">
+          <File Id="LicenseTxt"
+                Source="$(var.ProjectDir)/LICENSE.txt"
+                KeyPath="yes" />
+        </Component>
+        <Component Id="NoticeTxt" Guid="6B38A501-E592-4A53-B830-AECDD7B71D45">
+          <File Id="NoticeTxt"
+                Source="$(var.ProjectDir)/NOTICE.txt"
+                KeyPath="yes" />
+        </Component>
+        <Component Id="WintunLicenseTxt" Guid="2B1F4FBF-111C-454E-9FBB-159AD20314E6">
+          <File Id="WintunLicenseTxt"
+                Source="$(var.ProjectDir)/dll/wintun-LICENSE.txt"
+                KeyPath="yes" />
+        </Component>
         <Directory Id="IconsFolder" Name="icons">
           <Component Id="IconOrange" Guid="C4E53048-A2A6-45D5-8D2B-DADCFA713ED8">
             <File Id="IconOrange"
@@ -117,6 +139,9 @@
     <Feature Id="ProductFeature" Title="ZTARC" Level="1">
       <ComponentRef Id="ZtarcExe" />
       <ComponentRef Id="WintunDll" />
+      <ComponentRef Id="LicenseTxt" />
+      <ComponentRef Id="NoticeTxt" />
+      <ComponentRef Id="WintunLicenseTxt" />
       <ComponentRef Id="IconOrange" />
       <ComponentRef Id="IconGray" />
       <ComponentRef Id="WordMarkBlack" />

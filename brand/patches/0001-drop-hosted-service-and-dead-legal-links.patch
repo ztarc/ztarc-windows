@@ -1,28 +1,43 @@
-Remove what ZTARC does not have.
+Remove what ZTARC does not have, and add what AGPL-3 requires.
 
-Three things upstream offers that we cannot honour, and which a string
-substitution cannot fix because they are structure, not wording:
+Structural changes a string substitution cannot make:
 
   * "Pangolin Cloud" — there is no ZTARC hosted service. The button is hidden
     in updateUI rather than deleted, so the state machine around it is
     untouched and an upstream rewrite of that machine still applies cleanly.
+    Its label survives in the binary as an unreachable string; that is the
+    price of not restructuring code we do not own.
   * An empty server field — the console is the only way in, so it is prefilled
     from config.DefaultHostname.
-  * Terms of Service and Privacy Policy links, in the login window and the
-    About tab — ztarc.io has no such pages, and a link that 404s is worse than
-    no link. Their declarations go with them, or Go rejects the unused
-    variables.
+  * Terms of Service and Privacy Policy — in the login window, the About tab and
+    the tray menu. ztarc.io has no such pages, and a link that goes nowhere is
+    worse than no link. Their declarations go with them, or Go rejects the
+    unused variables.
   * "Install CLI" — the binary behind it is the upstream vendor's, fetched from
     their GitHub releases. Renaming the menu entry would have been the dishonest
     fix; it stays hidden until ZTARC has a CLI of its own.
 
+And one addition, in both places the removed links occupied. The About tab's
+Legal section and the tray's More menu now carry "Source code (AGPL-3)". This
+client is a modified build of AGPL-3 software, so everyone who runs it is
+entitled to the corresponding source; a link where they will actually look is
+the honest way to offer it.
+
 Applied by scripts/rebrand.sh before the sed rules, so the context lines here
 match pristine upstream. If fosrl rewrites either file this fails loudly, which
-is the intent: the alternative is "Pangolin Cloud" quietly reappearing.
+is the intent.
 
+Note how this file is applied: from the repository root with
+`git apply --directory=build/src`, never `git -C build/src apply`. build/src is
+inside this work tree, so the latter resolves paths against the repository root,
+finds nothing to patch, and exits 0 — which is exactly what it did, silently,
+for every build until scripts/audit-brand.sh started asserting the results.
+
+diff --git a/ui/login_window.go b/ui/login_window.go
+index 15b7a17..2dd17fb 100644
 --- a/ui/login_window.go
 +++ b/ui/login_window.go
-@@ -162,7 +162,7 @@
+@@ -162,7 +162,7 @@ func ShowLoginDialog(
  	// State variables
  	currentState := stateHostingSelection
  	hostingOpt := hostingNone
@@ -31,7 +46,7 @@ is the intent: the alternative is "Pangolin Cloud" quietly reappearing.
  	isLoggingIn := false
  	hasAutoOpenedBrowser := false
  	loginSucceeded := false
-@@ -188,8 +188,6 @@
+@@ -188,8 +188,6 @@ func ShowLoginDialog(
  	var progressBar *walk.ProgressBar
  	var backButton, cancelButton, loginButton *walk.PushButton
  	var logoContainer *walk.Composite
@@ -40,7 +55,7 @@ is the intent: the alternative is "Pangolin Cloud" quietly reappearing.
  	var termsComposite *walk.Composite
  
  	isReadyToLogin := func() bool {
-@@ -232,7 +230,9 @@
+@@ -232,7 +230,9 @@ func ShowLoginDialog(
  			showDeviceAuthCode := currentState == stateDeviceAuthCode
  
  			if cloudButton != nil {
@@ -51,11 +66,10 @@ is the intent: the alternative is "Pangolin Cloud" quietly reappearing.
  			}
  			if selfHostedButton != nil {
  				selfHostedButton.SetVisible(showHostingSelection)
-@@ -528,45 +528,6 @@
- 						},
+@@ -529,45 +529,6 @@ func ShowLoginDialog(
  					},
  				},
--			},
+ 			},
 -			// Terms and Privacy notice
 -			Composite{
 -				AssignTo: &termsComposite,
@@ -94,31 +108,26 @@ is the intent: the alternative is "Pangolin Cloud" quietly reappearing.
 -						},
 -					},
 -				},
- 			},
+-			},
  			// Buttons at bottom
  			Composite{
+ 				AssignTo: &buttonComposite,
+diff --git a/ui/preferences/about_tab.go b/ui/preferences/about_tab.go
+index 07ff311..7185907 100644
 --- a/ui/preferences/about_tab.go
 +++ b/ui/preferences/about_tab.go
-@@ -150,38 +150,6 @@
- 		browser.OpenURL("https://docs.pangolin.net/about/how-pangolin-works")
- 	})
+@@ -161,26 +161,16 @@ func (at *AboutTab) Create(parent *walk.TabWidget) (*walk.TabPage, error) {
+ 	}
+ 	legalSectionLabel.SetAlignment(walk.AlignHNearVNear)
  
--	// Legal section
--	legalSectionLabel, err := walk.NewLabel(contentContainer)
--	if err != nil {
--		return nil, err
--	}
--	legalSectionLabel.SetText("Legal")
--	if sectionFont != nil {
--		legalSectionLabel.SetFont(sectionFont)
--	}
--	legalSectionLabel.SetAlignment(walk.AlignHNearVNear)
--
 -	// Terms of Service link
 -	termsLinkLabel, err := walk.NewLinkLabel(contentContainer)
--	if err != nil {
--		return nil, err
--	}
++	// This client is a modified build of AGPL-3 software, so whoever runs it is
++	// entitled to its source. A link here is how they find it.
++	sourceLinkLabel, err := walk.NewLinkLabel(contentContainer)
+ 	if err != nil {
+ 		return nil, err
+ 	}
 -	termsLinkLabel.SetText(`<a href="https://pangolin.net/tos">Terms of Service</a>`)
 -	termsLinkLabel.SetAlignment(walk.AlignHNearVNear)
 -	termsLinkLabel.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
@@ -134,13 +143,46 @@ is the intent: the alternative is "Pangolin Cloud" quietly reappearing.
 -	privacyLinkLabel.SetAlignment(walk.AlignHNearVNear)
 -	privacyLinkLabel.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
 -		browser.OpenURL("https://pangolin.net/privacy")
--	})
++	sourceLinkLabel.SetText(`<a href="https://github.com/ztarc/ztarc-windows">Source code (AGPL-3)</a>`)
++	sourceLinkLabel.SetAlignment(walk.AlignHNearVNear)
++	sourceLinkLabel.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
++		browser.OpenURL("https://github.com/ztarc/ztarc-windows")
+ 	})
  
  	// Add spacer to fill remaining space
- 	walk.NewVSpacer(contentContainer)
+diff --git a/ui/tray.go b/ui/tray.go
+index ac82818..e429ecb 100644
 --- a/ui/tray.go
 +++ b/ui/tray.go
-@@ -779,14 +779,16 @@
+@@ -472,19 +472,15 @@ func setupMenu() error {
+ 	copyrightAction.SetEnabled(false)
+ 	moreMenu.Actions().Add(copyrightAction)
+ 
+-	termsAction := walk.NewAction()
+-	termsAction.SetText("Terms of Service")
+-	termsAction.Triggered().Attach(func() {
+-		openURL("https://pangolin.net/tos")
++	// This client is a modified build of AGPL-3 software, so whoever runs it is
++	// entitled to its source. The tray menu is where people look, so the offer
++	// is here as well as in Preferences → About.
++	sourceAction := walk.NewAction()
++	sourceAction.SetText("Source code (AGPL-3)")
++	sourceAction.Triggered().Attach(func() {
++		openURL("https://github.com/ztarc/ztarc-windows")
+ 	})
+-	moreMenu.Actions().Add(termsAction)
+-
+-	privacyAction := walk.NewAction()
+-	privacyAction.SetText("Privacy Policy")
+-	privacyAction.Triggered().Attach(func() {
+-		openURL("https://pangolin.net/privacy")
+-	})
+-	moreMenu.Actions().Add(privacyAction)
++	moreMenu.Actions().Add(sourceAction)
+ 
+ 	moreMenu.Actions().Add(walk.NewSeparatorAction())
+ 
+@@ -779,14 +775,16 @@ func updateMenu() {
  			updateAction.SetVisible(hasUpdateLocal)
  		}
  

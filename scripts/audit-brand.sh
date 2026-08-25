@@ -20,6 +20,10 @@ DST="$ROOT/build/src"
 # \\.\pipe\<name> is a real fault, not a cosmetic one.
 PATTERN='pangolin|fossorial'
 
+# Note on scope: only source and packaging files are scanned. LICENSE.txt and
+# NOTICE.txt carry the upstream copyright holder's name because AGPL-3 requires
+# that attribution — removing it would be the violation, not the fix.
+
 # Two exemptions, each for a reason, not for convenience:
 #
 #   github.com/fosrl/  — import paths and the newt/olm libraries. Code, not
@@ -55,6 +59,25 @@ REQUIRED=(
     "config/config.go|return resolveIconsPath\(\)|GetIconsPath would look only in Program Files, so a copied .exe shows a blank tray icon"
     "config/config.go|AppName[[:space:]]+= \"ZTARC\"|the Windows service name, config folder and tunnel adapter are all derived from AppName"
     "config/config.go|DefaultHostname[[:space:]]+= \"https://console.ztarc.io\"|the login window would default to the upstream vendor's hosted service"
+    # Results of brand/patches/. `git apply` was found to exit 0 while changing
+    # nothing — build/src sits inside this work tree, so it resolved paths
+    # against the repository root — and every build since had shipped the cloud
+    # button and the dead legal links. Nothing else noticed for days.
+    "ui/login_window.go|selfHostedURL := config.DefaultHostname|the server field would be empty although the console is the only way in"
+    "ui/preferences/about_tab.go|sourceLinkLabel|the About tab would not link to the source, which AGPL-3 obliges us to offer"
+    "ui/tray.go|cliInstallAction.SetVisible\(false\)|the tray would offer to install the upstream vendor's CLI"
+    "ui/tray.go|sourceAction|the tray menu would not link to the source, which AGPL-3 obliges us to offer"
+)
+
+# And the other half of the same check: results that must be ABSENT. A patch
+# that half-applies, or a deletion that stops matching, leaves the thing it was
+# supposed to remove.
+# Format: <path under build/src>|<extended regex that must NOT match>|<why it must go>
+FORBIDDEN=(
+    "ui/login_window.go|Terms of Service|ztarc.io has no such page; the link 404s"
+    "ui/preferences/about_tab.go|Privacy Policy|ztarc.io has no such page; the link 404s"
+    "ui/tray.go|Terms of Service|ztarc.io has no such page; the tray entry would go nowhere"
+    "ui/login_window.go|cloudButton.SetVisible\(showHostingSelection\)|there is no ZTARC hosted service to offer"
 )
 
 missing=""
@@ -65,11 +88,18 @@ for entry in "${REQUIRED[@]}"; do
     fi
 done
 
+for entry in "${FORBIDDEN[@]}"; do
+    IFS='|' read -r file needle why <<< "$entry"
+    if grep -qE -- "$needle" "$DST/$file" 2>/dev/null; then
+        missing="$missing\n  $file: still contains \"$needle\"\n      it must go because $why"
+    fi
+done
+
 if [ -n "$missing" ]; then
-    echo "brand audit failed — a substitution stopped matching:" >&2
+    echo "brand audit failed — a rule or patch stopped taking effect:" >&2
     printf '%b\n' "$missing" >&2
     echo >&2
-    echo "Upstream probably moved the line. Update brand/rules.sed." >&2
+    echo "Upstream probably moved the code. Update brand/rules.sed or the patch." >&2
     exit 1
 fi
 

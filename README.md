@@ -4,6 +4,26 @@ The Windows client for ZTARC, built from [`fosrl/windows`](https://github.com/fo
 — the upstream Pangolin desktop client — pinned here as the `upstream/` submodule
 and rebranded at build time.
 
+## Licence
+
+**AGPL-3.** This is a modified build of [`fosrl/windows`](https://github.com/fosrl/windows),
+whose LICENSE states that files without a licence header are AGPL-3 — and no
+file in that tree carries one. A derivative is therefore AGPL-3 too, and anyone
+we give a binary to is entitled to the corresponding source: this repository at
+the commit it was built from, plus `upstream/` at its recorded submodule commit.
+The client links to it from the tray's More menu and from Preferences → About.
+
+`LICENSE` is the licence, `NOTICE` records what was changed and when, and the
+third-party inventory. Both are installed beside the executable, not merely kept
+here — the person who runs the installer is the one entitled to them, and they
+may never see a git repository.
+
+One component is not free software. `wintun.dll` is WireGuard LLC's, licensed
+and not sold, and may not be modified or reverse engineered. Redistribution is
+permitted "insofar as the Software is distributed alongside other software that
+uses the Software only via the Permitted API", which is what this client does.
+It is aggregated with the program, not part of it; its licence ships beside it.
+
 ## Build
 
 ```bash

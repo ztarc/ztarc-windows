@@ -28,15 +28,24 @@ echo "$SHA256  $TMP/wintun.zip" | sha256sum -c - || {
 # This runs on Fedora and on a GitHub windows runner, and they do not agree on
 # which unzip exists: Git Bash ships no `unzip`, the runner image ships 7-Zip,
 # Fedora ships the reverse. Pick whichever is there and say so if neither is.
-mkdir -p "$DEST"
+# The licence comes out with the DLL, not as an afterthought. Wintun's prebuilt
+# binaries are proprietary and its terms forbid stripping its notices, so the
+# file that states them travels with the binary it covers — into this repo, and
+# from there into the installer.
+mkdir -p "$DEST" "$ROOT/third-party"
 if command -v unzip >/dev/null; then
     unzip -joq "$TMP/wintun.zip" "wintun/bin/amd64/wintun.dll" -d "$DEST"
+    unzip -joq "$TMP/wintun.zip" "wintun/LICENSE.txt" -d "$TMP"
 elif command -v 7z >/dev/null; then
     7z e -y -o"$DEST" "$TMP/wintun.zip" "wintun/bin/amd64/wintun.dll" >/dev/null
+    7z e -y -o"$TMP" "$TMP/wintun.zip" "wintun/LICENSE.txt" >/dev/null
 else
     echo "neither unzip nor 7z is available to extract the archive" >&2
     exit 1
 fi
+mv -f "$TMP/LICENSE.txt" "$ROOT/third-party/wintun-LICENSE.txt"
 
 [ -f "$DEST/wintun.dll" ] || { echo "wintun.dll was not extracted" >&2; exit 1; }
+[ -f "$ROOT/third-party/wintun-LICENSE.txt" ] || { echo "wintun LICENSE.txt was not extracted" >&2; exit 1; }
 echo "→ $DEST/wintun.dll"
+echo "→ $ROOT/third-party/wintun-LICENSE.txt"

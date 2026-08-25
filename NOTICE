@@ -1,0 +1,82 @@
+ZTARC Windows Client
+Copyright (c) 2026 ZTARC
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See LICENSE for the full text.
+
+
+A MODIFIED VERSION
+------------------
+
+This is a modified build of the Pangolin Windows client by Fossorial, Inc.
+(https://github.com/fosrl/windows), Copyright (c) 2025 Fossorial, Inc.
+
+Upstream states that files without a license header are licensed under AGPL-3,
+and dual-licensing under the Fossorial Commercial License requires a separate
+written agreement. No file in the upstream tree carries a commercial-license
+header, so the whole of it is AGPL-3, and so is this derivative.
+
+Modifications by ZTARC, beginning 23 August 2026:
+
+  * Renamed and rebranded throughout — application name, Windows service name,
+    configuration directory, tunnel adapter, named pipes, log file, icons and
+    word marks.
+  * Default server set to the ZTARC console; the upstream vendor's hosted
+    service is no longer offered.
+  * Removed links to pages that do not exist for this product (terms of service,
+    privacy policy) and the menu entry that downloads the upstream vendor's CLI.
+  * Added a version scheme that records which upstream release a build is based
+    on, and a build counter of our own.
+  * Icons are now looked for beside the executable before the installation
+    directory.
+  * Automatic update checks default to off.
+
+None of these edits are made to the upstream tree itself. `upstream/` is a
+pristine git submodule pinned to a released tag; every change above is expressed
+as a rule under `brand/` and applied to a staged copy at build time. Reading
+`brand/` alongside the submodule pin therefore shows exactly what was changed
+and nothing else.
+
+
+CORRESPONDING SOURCE
+--------------------
+
+The complete corresponding source for any binary we distribute is this
+repository at the commit the binary was built from, together with the upstream
+submodule at its recorded commit:
+
+    https://github.com/ztarc/ztarc-windows
+
+The client links to it from Preferences → About → Legal → "Source code (AGPL-3)".
+
+
+THIRD-PARTY COMPONENTS
+----------------------
+
+Compiled into ZTARC.exe:
+
+  github.com/fosrl/newt        AGPL-3      Copyright (c) Fossorial, Inc.
+  github.com/fosrl/olm         AGPL-3      Copyright (c) Fossorial, Inc.
+  github.com/tailscale/walk    BSD-3       Copyright (c) 2010 The Walk Authors
+  github.com/tailscale/win     BSD-3
+  github.com/Microsoft/go-winio  MIT       Copyright (c) Microsoft Corporation
+  github.com/zalando/go-keyring  MIT
+  github.com/pkg/browser       BSD-2
+  golang.org/x/{crypto,sys,net,...}  BSD-3  Copyright (c) The Go Authors
+
+Full license texts are in each module's source, available through the Go module
+proxy at the versions pinned in upstream/go.sum.
+
+Shipped alongside, in the installer:
+
+  wintun.dll                   Copyright (c) WireGuard LLC. All rights reserved.
+
+Wintun's prebuilt DLLs are NOT free software: they are licensed, not sold, and
+may not be modified or reverse engineered. Redistribution is permitted only
+"insofar as the Software is distributed alongside other software that uses the
+Software only via the Permitted API", which is how this client uses it. It is an
+independent, unmodified work merely aggregated with this program, not part of
+it. Its full licence is in third-party/wintun-LICENSE.txt and is installed
+beside the executable.
