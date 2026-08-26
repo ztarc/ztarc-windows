@@ -174,6 +174,36 @@ checked — `scripts/fetch-wintun.sh`, run by CI and available locally as
 a README, and upstream's `.gitignore` covers `*.dll`, so fetching it there does
 not dirty the submodule.
 
+## Releasing
+
+Testers should not need a GitHub account, and Actions artifacts require one and
+expire after 90 days. Tagging publishes the installer as a release asset
+instead — a permanent public URL on a public repository:
+
+```bash
+make version                      # 0.14.0.1 — version.go is the source of truth
+git tag v0.14.0.1
+git push --tags
+```
+
+The job **refuses a tag that disagrees with**
+`brand/overrides/version/version.go`. A release whose page, filename and file
+properties state three different numbers is worse than no release, and the
+version already lives in exactly one file. To publish a fix on the same upstream
+base, bump `Build` in `version.go` first, then tag the new number.
+
+`SHA256SUMS` ships with every release. That is not housekeeping while the
+installer is unsigned: Windows cannot name the publisher, so a checksum
+published next to the source is the only means a tester has of establishing that
+what they downloaded is what CI built. The release notes say so, and give the
+`Get-FileHash` command to check against.
+
+The release is cut with the `gh` CLI already present on the runner rather than a
+third-party action. This is the step that hands a binary to other people, and
+not the place to take on a supply-chain dependency for convenience. The workflow
+token is read-only for branches and pull requests; only the release step writes,
+and only on a tag.
+
 ## Why the tray icon is a file, not a resource
 
 The icon compiled into `ZTARC.exe` is only the one Explorer shows for the file

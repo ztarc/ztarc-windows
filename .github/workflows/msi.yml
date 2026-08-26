@@ -24,9 +24,16 @@ on:
     tags: ["v*"]
   pull_request:
 
+# Only the release step writes anything, and only on a tag. Everything else is
+# a read, so the token stays read-only for pull requests and branch pushes.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
     defaults:
       run:
         shell: bash
@@ -62,11 +69,33 @@ jobs:
       - name: Brand audit
         run: ./scripts/audit-brand.sh
 
+      # A tag that disagrees with version.go would publish an installer whose
+      # filename, properties and release page all say different things. The
+      # version lives in one file; this is where the tag is held to it.
+      - name: Check the tag matches version.go
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          declared="$(. ./scripts/version.sh && ztarc_version brand/overrides/version/version.go)"
+          tagged="${GITHUB_REF_NAME#v}"
+          if [ "$declared" != "$tagged" ]; then
+            echo "Tag $GITHUB_REF_NAME says $tagged, brand/overrides/version/version.go says $declared." >&2
+            echo "Bump Build in version.go, or tag the version that is actually in the tree." >&2
+            exit 1
+          fi
+          echo "tag and version.go agree on $declared"
+
       - name: Build ZTARC.exe
         run: ./scripts/build-exe.sh
 
       - name: Build the installer
         run: ./scripts/build-msi.sh
+
+      # Published alongside the installer. Until there is a code-signing
+      # certificate this is the only way a tester can tell that what they
+      # downloaded is what CI built, so it is part of the release, not a nicety.
+      - name: Checksums
+        run: |
+          cd build && sha256sum ZTARC.exe *.msi > SHA256SUMS && cat SHA256SUMS
 
       - name: Report what was built
         run: |
@@ -74,7 +103,7 @@ jobs:
           echo "### ZTARC $version" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           ls -la build/*.exe build/*.msi >> "$GITHUB_STEP_SUMMARY"
-          sha256sum build/*.exe build/*.msi >> "$GITHUB_STEP_SUMMARY"
+          cat build/SHA256SUMS >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
@@ -85,4 +114,57 @@ jobs:
           path: |
             build/*.msi
             build/ZTARC.exe
+            build/SHA256SUMS
           if-no-files-found: error
+
+      # Testers should not need a GitHub account, and Actions artifacts require
+      # one and expire after 90 days. A release asset is a permanent public URL
+      # on a public repository, which is what "send the testers a link" needs.
+      #
+      # Published with the `gh` CLI that ships on the runner rather than a
+      # third-party action: this is the step that hands a binary to other people,
+      # and it is not the place to add a supply-chain dependency for convenience.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(. ./scripts/version.sh && ztarc_version brand/overrides/version/version.go)"
+          upstream="$(git -C upstream describe --tags --always)"
+
+          cat > notes.md <<NOTES
+          ZTARC Windows client **$version**, built from upstream \`fosrl/windows\` $upstream.
+
+          ## Install
+
+          Download \`ztarc-amd64-$version.msi\` and run it.
+
+          **Windows SmartScreen will warn you.** This build is not signed with a
+          code-signing certificate yet, so Windows cannot name the publisher.
+          Choose **More info → Run anyway**. Verify what you downloaded first:
+
+          \`\`\`powershell
+          Get-FileHash .\\ztarc-amd64-$version.msi -Algorithm SHA256
+          \`\`\`
+
+          and compare it against \`SHA256SUMS\` below.
+
+          The installer registers the \`ZTARCManager\` service, which is what lets
+          the tunnel create its network adapter. Running \`ZTARC.exe\` on its own
+          is not a supported install — it is here only for looking at a UI change
+          without installing.
+
+          ## Source
+
+          This is a modified build of AGPL-3 software. The corresponding source is
+          this repository at \`${GITHUB_SHA}\`, together with the \`upstream/\`
+          submodule at its recorded commit. The client links to it from the tray
+          menu and from Preferences → About.
+          NOTES
+
+          gh release create "$GITHUB_REF_NAME" \
+            --title "ZTARC $version" \
+            --notes-file notes.md \
+            "build/ztarc-amd64-$version.msi" \
+            "build/ZTARC.exe" \
+            "build/SHA256SUMS"
