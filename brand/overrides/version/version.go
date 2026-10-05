@@ -18,7 +18,7 @@ const (
 	// the commit the upstream/ submodule is pinned to.
 	Upstream = "0.14.0"
 	// Build counts ZTARC releases made against that same upstream version.
-	Build = "1"
+	Build = "2"
 
 	Number = Upstream + "." + Build
 )

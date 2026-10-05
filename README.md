@@ -156,9 +156,19 @@ machines with a knowingly-unsupported toolchain would be the wrong trade even if
 the bug were worked around.
 
 The CI job runs the same `scripts/` the Makefile does, so it cannot compile
-something different from what a developer builds locally. It is also where
-Authenticode signing will belong once there is a certificate. Until then
-SmartScreen warns every person who runs the installer.
+something different from what a developer builds locally. Release tag builds
+use SSL.com eSigner to Authenticode sign and timestamp `ZTARC.exe` before WiX
+packages it, then sign the MSI. CI verifies the publisher, timestamp, and the
+EXE extracted from the MSI before producing checksums. Signing or verification
+failure stops the release. SmartScreen can still warn while reputation develops.
+
+PRs and ordinary pushes to `main` build unsigned artifacts. To test production
+signing without publishing a release, choose Actions → msi → Run workflow on
+`main` and enable **sign**. The `code-signing` environment must allow branch
+`main` and tags `v*`, and contain secrets `SSL_USERNAME`, `SSL_PASSWORD`,
+`SSL_CREDENTIAL_ID`, `SSL_TOTP_SECRET`, plus variable `SSL_CERT_SHA1` with the
+production leaf certificate thumbprint (colon separators are accepted).
+The `unsigned-ci` environment contains no signing credentials.
 
 WiX is pinned to **5.0.2**, the last release before the
 [Open Source Maintenance Fee](https://github.com/orgs/wixtoolset/discussions/9239).
@@ -192,17 +202,15 @@ properties state three different numbers is worse than no release, and the
 version already lives in exactly one file. To publish a fix on the same upstream
 base, bump `Build` in `version.go` first, then tag the new number.
 
-`SHA256SUMS` ships with every release. That is not housekeeping while the
-installer is unsigned: Windows cannot name the publisher, so a checksum
-published next to the source is the only means a tester has of establishing that
-what they downloaded is what CI built. The release notes say so, and give the
-`Get-FileHash` command to check against.
+`SHA256SUMS` ships with every release and is computed after signing, so it
+describes the final EXE and MSI. The release notes include the `Get-FileHash`
+command for checking downloaded files against it.
 
 The release is cut with the `gh` CLI already present on the runner rather than a
 third-party action. This is the step that hands a binary to other people, and
 not the place to take on a supply-chain dependency for convenience. The workflow
-token is read-only for branches and pull requests; only the release step writes,
-and only on a tag.
+token is read-only during builds. A separate publish job has write permission
+and runs only after a successful signed build from a release tag push.
 
 ## Why the tray icon is a file, not a resource
 
@@ -232,7 +240,7 @@ Compiling does not. Three later steps do:
 |---|---|---|
 | **Run / test** | real Windows | it creates a WinTun adapter and a service — nothing to emulate on Linux |
 | **MSI installer** | a Windows runner | `.github/workflows/msi.yml`. WiX does not run on Linux — see Installer above |
-| **Authenticode signing** | a code-signing certificate | unsigned, SmartScreen warns every user |
+| **Authenticode verification** | Windows trust APIs | CI checks SSL.com signatures and the EXE packaged inside the MSI |
 
 For running and testing, this machine already has `ghcr.io/dockur/windows` and
 KVM — a real Windows VM inside a container, lighter to manage than VirtualBox.
