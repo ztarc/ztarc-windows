@@ -294,6 +294,10 @@ jobs:
 
           and compare it against \`SHA256SUMS\` below.
 
+          If upgrading from a release with the same first three version fields
+          (for example, 0.14.0.1 to 0.14.0.2), uninstall the old version first.
+          Windows Installer does not compare the fourth version field.
+
           The installer registers the \`ZTARCManager\` service, which is what lets
           the tunnel create its network adapter. Running \`ZTARC.exe\` on its own
           is not a supported install — it is here only for looking at a UI change
