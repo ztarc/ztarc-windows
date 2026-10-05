@@ -56,6 +56,11 @@ command -v wix >/dev/null || {
     exit 1
 }
 
+[ -f build/src/dll/MicrosoftEdgeWebview2Setup.exe ] || {
+    echo "WebView2 bootstrapper is missing — run scripts/fetch-webview2.ps1 before staging." >&2
+    exit 1
+}
+
 # Paths stay relative to the repository root: wix.exe is a native Windows
 # program, and an absolute path produced by MSYS bash (/d/a/...) means nothing
 # to it.

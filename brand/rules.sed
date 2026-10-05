@@ -61,3 +61,19 @@ s|'pangolin' command|'ztarc' command|g
 # resolveIconsPath (brand/overrides/config/icons_path.go) looks beside the
 # executable first. scripts/audit-brand.sh asserts this rule still matches.
 s|return filepath\.Join(os\.Getenv("PROGRAMFILES"), AppName, "icons")|return resolveIconsPath()|
+
+# Wails frontend assets and browser storage identifiers (keep Go import paths).
+s|pangolin_logo_light|ztarc_logo_light|g
+s|pangolin_logo_dark|ztarc_logo_dark|g
+s|app_icon\.svg|app_icon.png|g
+s|pangolin\.statusDisplayMode|ztarc.statusDisplayMode|g
+s|pangolin-manager-ui-action|ztarc-manager-ui-action|g
+s|pangolin\.exe|ztarc.exe|g
+s|pangolin-windows-ui|ztarc-windows-ui|g
+s|app\.pangolin\.net|console.ztarc.io|g
+s|pangolin\.example\.com|console.ztarc.io|g
+s|pangolin\.home\.arpa|ztarc.home.arpa|g
+s|milo@pangolin\.net|user@example.com|g
+s|"fossorial"|"ztarc"|g
+s|pangolin-%d|ztarc-%d|g
+s|pangolin-update|ztarc-update|g

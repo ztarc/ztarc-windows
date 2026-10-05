@@ -13,3 +13,6 @@ Makefile text eol=lf
 *.dll binary
 *.msi binary
 *.exe binary
+
+# Patch context deliberately starts with a space before upstream Go tabs.
+*.patch whitespace=-blank-at-eol,-space-before-tab

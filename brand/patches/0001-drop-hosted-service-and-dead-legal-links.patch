@@ -1,205 +1,330 @@
-Remove what ZTARC does not have, and add what AGPL-3 requires.
+Adapt the Wails UI for ZTARC: server-only login, source links, and no upstream CLI or legal links.
 
-Structural changes a string substitution cannot make:
-
-  * "Pangolin Cloud" — there is no ZTARC hosted service. The button is hidden
-    in updateUI rather than deleted, so the state machine around it is
-    untouched and an upstream rewrite of that machine still applies cleanly.
-    Its label survives in the binary as an unreachable string; that is the
-    price of not restructuring code we do not own.
-  * An empty server field — the console is the only way in, so it is prefilled
-    from config.DefaultHostname.
-  * Terms of Service and Privacy Policy — in the login window, the About tab and
-    the tray menu. ztarc.io has no such pages, and a link that goes nowhere is
-    worse than no link. Their declarations go with them, or Go rejects the
-    unused variables.
-  * "Install CLI" — the binary behind it is the upstream vendor's, fetched from
-    their GitHub releases. Renaming the menu entry would have been the dishonest
-    fix; it stays hidden until ZTARC has a CLI of its own.
-
-And one addition, in both places the removed links occupied. The About tab's
-Legal section and the tray's More menu now carry "Source code (AGPL-3)". This
-client is a modified build of AGPL-3 software, so everyone who runs it is
-entitled to the corresponding source; a link where they will actually look is
-the honest way to offer it.
-
-Applied by scripts/rebrand.sh before the sed rules, so the context lines here
-match pristine upstream. If fosrl rewrites either file this fails loudly, which
-is the intent.
-
-Note how this file is applied: from the repository root with
-`git apply --directory=build/src`, never `git -C build/src apply`. build/src is
-inside this work tree, so the latter resolves paths against the repository root,
-finds nothing to patch, and exits 0 — which is exactly what it did, silently,
-for every build until scripts/audit-brand.sh started asserting the results.
-
-diff --git a/ui/login_window.go b/ui/login_window.go
-index 15b7a17..2dd17fb 100644
---- a/ui/login_window.go
-+++ b/ui/login_window.go
-@@ -162,7 +162,7 @@ func ShowLoginDialog(
- 	// State variables
- 	currentState := stateHostingSelection
- 	hostingOpt := hostingNone
--	selfHostedURL := ""
-+	selfHostedURL := config.DefaultHostname
- 	isLoggingIn := false
- 	hasAutoOpenedBrowser := false
- 	loginSucceeded := false
-@@ -188,8 +188,6 @@ func ShowLoginDialog(
- 	var progressBar *walk.ProgressBar
- 	var backButton, cancelButton, loginButton *walk.PushButton
- 	var logoContainer *walk.Composite
--	var termsLabel, andLabel *walk.Label
--	var termsLinkLabel, privacyLinkLabel *walk.LinkLabel
- 	var termsComposite *walk.Composite
+diff --git a/ui/login.go b/ui/login.go
+--- a/ui/login.go
++++ b/ui/login.go
+@@ -12,6 +12,7 @@
+ 	"time"
  
- 	isReadyToLogin := func() bool {
-@@ -232,7 +230,9 @@ func ShowLoginDialog(
- 			showDeviceAuthCode := currentState == stateDeviceAuthCode
+ 	"github.com/fosrl/newt/logger"
++	"github.com/fosrl/windows/config"
+ 	"github.com/fosrl/windows/managers"
+ )
  
- 			if cloudButton != nil {
--				cloudButton.SetVisible(showHostingSelection)
-+				// ZTARC has no hosted service. The only way in is an
-+				// organisation’s own console, so there is no choice to offer.
-+				cloudButton.SetVisible(false)
- 			}
- 			if selfHostedButton != nil {
- 				selfHostedButton.SetVisible(showHostingSelection)
-@@ -529,45 +529,6 @@ func ShowLoginDialog(
- 					},
- 				},
- 			},
--			// Terms and Privacy notice
--			Composite{
--				AssignTo: &termsComposite,
--				Layout:   HBox{MarginsZero: true, Alignment: AlignHCenterVCenter, Spacing: 0},
--				Children: []Widget{
--					Label{
--						AssignTo:  &termsLabel,
--						Text:      "By continuing, you agree to our ",
--						Font:      Font{PointSize: 8},
--						Alignment: AlignHNearVCenter,
--						TextColor: walk.RGB(0x80, 0x80, 0x80), // Secondary gray color
--					},
--					LinkLabel{
--						AssignTo:  &termsLinkLabel,
--						Text:      `<a href="https://pangolin.net/tos">Terms of Service</a>`,
--						Font:      Font{PointSize: 8},
--						Alignment: AlignHNearVCenter,
--						OnLinkActivated: func(link *walk.LinkLabelLink) {
--							openBrowser("https://pangolin.net/tos")
--						},
--					},
--					Label{
--						AssignTo:  &andLabel,
--						Text:      " and ",
--						Font:      Font{PointSize: 8},
--						Alignment: AlignHNearVCenter,
--						TextColor: walk.RGB(0x80, 0x80, 0x80), // Secondary gray color
--					},
--					LinkLabel{
--						AssignTo:  &privacyLinkLabel,
--						Text:      `<a href="https://pangolin.net/privacy">Privacy Policy</a>.`,
--						Font:      Font{PointSize: 8},
--						Alignment: AlignHNearVCenter,
--						OnLinkActivated: func(link *walk.LinkLabelLink) {
--							openBrowser("https://pangolin.net/privacy")
--						},
--					},
--				},
--			},
- 			// Buttons at bottom
- 			Composite{
- 				AssignTo: &buttonComposite,
-diff --git a/ui/preferences/about_tab.go b/ui/preferences/about_tab.go
-index 07ff311..7185907 100644
---- a/ui/preferences/about_tab.go
-+++ b/ui/preferences/about_tab.go
-@@ -161,26 +161,16 @@ func (at *AboutTab) Create(parent *walk.TabWidget) (*walk.TabPage, error) {
- 	}
- 	legalSectionLabel.SetAlignment(walk.AlignHNearVNear)
+@@ -165,7 +166,7 @@
+ func loginOpen(renewHostname string) LoginView {
+ 	loginEnd()
  
--	// Terms of Service link
--	termsLinkLabel, err := walk.NewLinkLabel(contentContainer)
-+	// This client is a modified build of AGPL-3 software, so whoever runs it is
-+	// entitled to its source. A link here is how they find it.
-+	sourceLinkLabel, err := walk.NewLinkLabel(contentContainer)
- 	if err != nil {
- 		return nil, err
- 	}
--	termsLinkLabel.SetText(`<a href="https://pangolin.net/tos">Terms of Service</a>`)
--	termsLinkLabel.SetAlignment(walk.AlignHNearVNear)
--	termsLinkLabel.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
--		browser.OpenURL("https://pangolin.net/tos")
--	})
+-	s := &loginSession{}
++	s := &loginSession{selfHosted: true, serverURL: config.DefaultHostname}
+ 	if accountManager != nil {
+ 		if active, _ := accountManager.ActiveAccount(); active != nil && active.Hostname != cloudHostname {
+ 			// Offer the current server for another self-hosted account.
+diff --git a/ui/frontend/src/prefs/AddAccountSheet.tsx b/ui/frontend/src/prefs/AddAccountSheet.tsx
+--- a/ui/frontend/src/prefs/AddAccountSheet.tsx
++++ b/ui/frontend/src/prefs/AddAccountSheet.tsx
+@@ -1,20 +1,18 @@
+ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+ import { LoginService, type LoginView } from "@bindings";
+-import { Button, Radio, Sheet, Spinner, TextField, cx, openExternal } from "../components/controls";
+-import { report, urls, useEvent } from "../lib";
++import { Button, Sheet, Spinner, TextField, cx } from "../components/controls";
++import { report, useEvent } from "../lib";
+ 
+ // The add-account sheet, as in the macOS app's AddAccountSheet: choose a
+ // server, approve the code in the browser, done. Renewing an account skips the
+ // server choice.
+ 
+-const cloudHostname = "https://app.pangolin.net";
+ // Steps cross-fade with a blur and the sheet eases to its new height, like the
+ // macOS sheet's `.smooth(duration: 0.3)`.
+ const stepMs = 300;
+ // Closest to the macOS app's SF Mono on Windows 11, then older fallbacks.
+ const codeFont = '"Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace';
+ 
+-type Server = "cloud" | "selfHosted";
+ 
+ /** Trims, adds https:// when there is no scheme, and strips surrounding slashes. */
+ function normalizeServerURL(text: string): string | null {
+@@ -27,8 +25,7 @@
+ 
+ export function AddAccountSheet({ renewHostname, onClose }: { renewHostname: string; onClose: () => void }) {
+   const [view, setView] = useState<LoginView | null>(null);
+-  const [server, setServer] = useState<Server>("cloud");
+-  const [serverURL, setServerURL] = useState("");
++  const [serverURL, setServerURL] = useState("https://console.ztarc.io");
+   const [copied, setCopied] = useState(false);
+   const session = useRef(0);
+ 
+@@ -42,7 +39,6 @@
+           return;
+         }
+         setView(v);
+-        if (v.selfHosted) setServer("selfHosted");
+         if (v.serverUrl) setServerURL(v.serverUrl);
+       }),
+     );
+@@ -62,7 +58,7 @@
+   const renewing = view?.renewing ?? !!renewHostname;
+   const host = view?.host ?? "the server";
+   const normalizedURL = normalizeServerURL(serverURL);
+-  const canContinue = server === "cloud" || normalizedURL !== null;
++  const canContinue = normalizedURL !== null;
+ 
+   // The sheet closes itself shortly after logging in.
+   useEffect(() => {
+@@ -73,7 +69,7 @@
+ 
+   const continueLogin = () => {
+     if (!canContinue) return;
+-    report(LoginService.Start(server === "cloud" ? cloudHostname : normalizedURL!));
++    report(LoginService.Start(normalizedURL!));
+   };
+   const copyCode = () => {
+     report(LoginService.CopyCode());
+@@ -90,43 +86,21 @@
+     case "server":
+       content = (
+         <div className="flex flex-col gap-4">
+-          <Header title="Add Account" subtitle="Log in to Pangolin Cloud or to your own Pangolin server." />
+-          <div role="radiogroup" aria-label="Server" className="flex flex-col gap-1">
+-            <Radio
+-              checked={server === "cloud"}
+-              onSelect={() => setServer("cloud")}
+-              title="Pangolin Cloud"
+-              detail="app.pangolin.net"
+-            />
+-            <Radio
+-              checked={server === "selfHosted"}
+-              onSelect={() => setServer("selfHosted")}
+-              title="Self-hosted or dedicated"
+-              detail="Your organization's Pangolin server"
+-            />
+-          </div>
+-          {server === "selfHosted" && (
+-            <div className="pl-5">
+-              <TextField
+-                aria-label="Server URL"
+-                autoFocus
+-                className="w-full"
+-                placeholder="https://pangolin.example.com"
+-                value={serverURL}
+-                onChange={(e) => setServerURL(e.target.value)}
+-              />
+-            </div>
+-          )}
++          <Header title="Add Account" subtitle="Log in to your organization's ZTARC server." />
++          <TextField
++            aria-label="Server URL"
++            autoFocus
++            className="w-full"
++            placeholder="https://console.ztarc.io"
++            value={serverURL}
++            onChange={(e) => setServerURL(e.target.value)}
++          />
+           {view?.error && (
+             <div className="flex items-start gap-1.5 text-[12px] text-mac-danger">
+               <WarningIcon />
+               <span className="min-w-0 break-words">{view.error}</span>
+             </div>
+           )}
+-          <p className="text-[11px] text-mac-secondary">
+-            By continuing, you agree to the <LegalLink href={urls.terms}>Terms of Service</LegalLink> and{" "}
+-            <LegalLink href={urls.privacy}>Privacy Policy</LegalLink>
+-          </p>
+         </div>
+       );
+       break;
+@@ -246,21 +220,6 @@
+   );
+ }
+ 
+-function LegalLink({ href, children }: { href: string; children: ReactNode }) {
+-  return (
+-    <a
+-      href={href}
+-      onClick={(e) => {
+-        e.preventDefault();
+-        openExternal(href);
+-      }}
+-      className="underline"
+-    >
+-      {children}
+-    </a>
+-  );
+-}
 -
--	// Privacy Policy link
--	privacyLinkLabel, err := walk.NewLinkLabel(contentContainer)
--	if err != nil {
--		return nil, err
+ /** Eases to the height of its content as it changes. */
+ function AnimatedHeight({ children }: { children: ReactNode }) {
+   const inner = useRef<HTMLDivElement>(null);
+diff --git a/ui/frontend/src/prefs/AccountsTab.tsx b/ui/frontend/src/prefs/AccountsTab.tsx
+--- a/ui/frontend/src/prefs/AccountsTab.tsx
++++ b/ui/frontend/src/prefs/AccountsTab.tsx
+@@ -132,7 +132,7 @@
+       <img src={appIcon} alt="" className="size-[96px]" />
+       <h2 className="mt-4 text-[22px] font-semibold">Log In to Pangolin</h2>
+       <p className="mt-1.5 max-w-[340px] text-[13px] text-mac-secondary">
+-        Connect to your organization's private resources by logging in to Pangolin Cloud or your own Pangolin server.
++        Connect to your organization's private resources by logging in to your organization’s ZTARC server.
+       </p>
+       <Button variant="prominent" size="large" className="mt-6 min-w-[120px]" onClick={onLogIn}>
+         Log In…
+diff --git a/ui/frontend/src/prefs/AboutTab.tsx b/ui/frontend/src/prefs/AboutTab.tsx
+--- a/ui/frontend/src/prefs/AboutTab.tsx
++++ b/ui/frontend/src/prefs/AboutTab.tsx
+@@ -22,12 +22,10 @@
+ 
+       <Section header="Resources">
+         <LinkRow href={urls.docs}>Documentation</LinkRow>
+-        <LinkRow href={urls.howItWorks}>How Pangolin Works</LinkRow>
+       </Section>
+ 
+       <Section header="Legal">
+-        <LinkRow href={urls.terms}>Terms of Service</LinkRow>
+-        <LinkRow href={urls.privacy}>Privacy Policy</LinkRow>
++        <LinkRow href={urls.source}>Source code (AGPL-3)</LinkRow>
+       </Section>
+     </Form>
+   );
+diff --git a/ui/frontend/src/lib.ts b/ui/frontend/src/lib.ts
+--- a/ui/frontend/src/lib.ts
++++ b/ui/frontend/src/lib.ts
+@@ -16,7 +16,6 @@
+ export const urls = {
+   docs: "https://docs.pangolin.net/",
+   howItWorks: "https://docs.pangolin.net/about/how-pangolin-works",
+-  terms: "https://pangolin.net/tos",
+-  privacy: "https://pangolin.net/privacy",
++  source: "https://github.com/ztarc/ztarc-windows",
+   configureClient: "https://docs.pangolin.net/manage/clients/configure-client",
+ };
+diff --git a/ui/frontend/src/onboarding/OnboardingWindow.tsx b/ui/frontend/src/onboarding/OnboardingWindow.tsx
+--- a/ui/frontend/src/onboarding/OnboardingWindow.tsx
++++ b/ui/frontend/src/onboarding/OnboardingWindow.tsx
+@@ -186,21 +186,16 @@
+       <Body>
+         <div className="flex flex-col gap-2">
+           <p>
+-            We collect your email, device name and model, OS version, and IP address. This enables us to connect your
+-            device to your network securely.
++            Your configured server receives your email, device name and model, OS version, and IP address to connect
++            your device to your network securely.
+           </p>
+-          <p>Your traffic is end-to-end encrypted and is never readable by us or anyone outside your network.</p>
++          <p>Tunnel traffic is encrypted between your device and your network.</p>
+           <p>
+-            If you're using a self-hosted Pangolin server, all data remains on your server and is never sent to our
+-            servers.
++            Account and device information is managed by your organization's configured server.
+           </p>
+         </div>
+       </Body>
+       <div className="flex-1" />
+-      <p className="px-4 pt-2 text-center text-[10px] text-mac-secondary">
+-        By continuing, you agree to our <Link href={urls.terms}>Terms of Service</Link> and{" "}
+-        <Link href={urls.privacy}>Privacy Policy</Link>.
+-      </p>
+       <div className="h-4 shrink-0" />
+     </div>
+   );
+diff --git a/ui/menu.go b/ui/menu.go
+--- a/ui/menu.go
++++ b/ui/menu.go
+@@ -50,8 +50,7 @@
+ 	menuIDOpenStatus     = "sites.openStatus"
+ 	menuIDHowItWorks     = "more.howItWorks"
+ 	menuIDDocs           = "more.docs"
+-	menuIDTerms          = "more.terms"
+-	menuIDPrivacy        = "more.privacy"
++	menuIDSource         = "more.source"
+ 	menuIDCheckUpdates   = "more.checkUpdates"
+ 	menuIDInstallCLI     = "more.installCLI"
+ 	menuIDAddAccount     = "account.add"
+@@ -561,24 +560,15 @@
+ func moreSubmenu(in menuInputs) MenuItem {
+ 	sub := []MenuItem{
+ 		header("Support"),
+-		item(menuIDHowItWorks, "How Pangolin Works", true),
+ 		item(menuIDDocs, "Documentation", true),
+ 		separator(),
+ 		header(fmt.Sprintf("© %d Fossorial, Inc.", in.Year)),
+-		item(menuIDTerms, "Terms of Service", true),
+-		item(menuIDPrivacy, "Privacy Policy", true),
++		item(menuIDSource, "Source code (AGPL-3)", true),
+ 		separator(),
+ 		header("Version " + in.Version),
+ 	}
+ 	if in.CheckUpdateVisible {
+ 		sub = append(sub, item(menuIDCheckUpdates, "Check for Updates…", true))
 -	}
--	privacyLinkLabel.SetText(`<a href="https://pangolin.net/privacy">Privacy Policy</a>`)
--	privacyLinkLabel.SetAlignment(walk.AlignHNearVNear)
--	privacyLinkLabel.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
--		browser.OpenURL("https://pangolin.net/privacy")
-+	sourceLinkLabel.SetText(`<a href="https://github.com/ztarc/ztarc-windows">Source code (AGPL-3)</a>`)
-+	sourceLinkLabel.SetAlignment(walk.AlignHNearVNear)
-+	sourceLinkLabel.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
-+		browser.OpenURL("https://github.com/ztarc/ztarc-windows")
- 	})
+-	if !in.CLIInstalled {
+-		text := "Install Pangolin CLI…"
+-		if in.CLIInstalling {
+-			text = "Installing CLI…"
+-		}
+-		sub = append(sub, item(menuIDInstallCLI, text, !in.CLIInstalling))
+ 	}
+ 	return MenuItem{ID: "more", Kind: MenuKindSubmenu, Label: "More", Enabled: true, Items: sub}
+ }
+diff --git a/ui/actions.go b/ui/actions.go
+--- a/ui/actions.go
++++ b/ui/actions.go
+@@ -15,8 +15,7 @@
+ const (
+ 	urlHowItWorks = "https://docs.pangolin.net/about/how-pangolin-works"
+ 	urlDocs       = "https://docs.pangolin.net/"
+-	urlTerms      = "https://pangolin.net/tos"
+-	urlPrivacy    = "https://pangolin.net/privacy"
++	urlSource     = "https://github.com/ztarc/ztarc-windows"
+ )
  
- 	// Add spacer to fill remaining space
-diff --git a/ui/tray.go b/ui/tray.go
-index ac82818..e429ecb 100644
---- a/ui/tray.go
-+++ b/ui/tray.go
-@@ -472,19 +472,15 @@ func setupMenu() error {
- 	copyrightAction.SetEnabled(false)
- 	moreMenu.Actions().Add(copyrightAction)
+ func openURL(url string) {
+@@ -69,10 +68,8 @@
+ 		openURL(urlHowItWorks)
+ 	case id == menuIDDocs:
+ 		openURL(urlDocs)
+-	case id == menuIDTerms:
+-		openURL(urlTerms)
+-	case id == menuIDPrivacy:
+-		openURL(urlPrivacy)
++	case id == menuIDSource:
++		openURL(urlSource)
+ 	case id == menuIDCheckUpdates:
+ 		checkForUpdates()
+ 	case id == menuIDInstallCLI:
+diff --git a/ui/services.go b/ui/services.go
+--- a/ui/services.go
++++ b/ui/services.go
+@@ -3,7 +3,6 @@
+ package ui
  
--	termsAction := walk.NewAction()
--	termsAction.SetText("Terms of Service")
--	termsAction.Triggered().Attach(func() {
--		openURL("https://pangolin.net/tos")
-+	// This client is a modified build of AGPL-3 software, so whoever runs it is
-+	// entitled to its source. The tray menu is where people look, so the offer
-+	// is here as well as in Preferences → About.
-+	sourceAction := walk.NewAction()
-+	sourceAction.SetText("Source code (AGPL-3)")
-+	sourceAction.Triggered().Attach(func() {
-+		openURL("https://github.com/ztarc/ztarc-windows")
- 	})
--	moreMenu.Actions().Add(termsAction)
--
--	privacyAction := walk.NewAction()
--	privacyAction.SetText("Privacy Policy")
--	privacyAction.Triggered().Attach(func() {
--		openURL("https://pangolin.net/privacy")
--	})
--	moreMenu.Actions().Add(privacyAction)
-+	moreMenu.Actions().Add(sourceAction)
+ import (
+-	"strings"
+ 	"time"
  
- 	moreMenu.Actions().Add(walk.NewSeparatorAction())
+ 	"github.com/fosrl/windows/version"
+@@ -95,10 +94,10 @@
+ // AppService holds small helpers shared by all windows.
+ type AppService struct{}
  
-@@ -779,14 +775,16 @@ func updateMenu() {
- 			updateAction.SetVisible(hasUpdateLocal)
- 		}
- 
--		cliInstalledMutex.RLock()
--		cliInstalledLocal := cliInstalled
--		cliInstalledMutex.RUnlock()
- 		cliInstallInProgressM.Lock()
- 		cliInstallRunning := cliInstallInProgress
- 		cliInstallInProgressM.Unlock()
- 		if cliInstallAction != nil {
--			cliInstallAction.SetVisible(!cliInstalledLocal)
-+			// The CLI this would fetch is the upstream vendor's, published
-+			// under their name on GitHub. ZTARC does not ship a CLI, so the
-+			// entry stays hidden rather than offering someone else's. The
-+			// three lines that read cliInstalled go with it — Go rejects the
-+			// variable once nothing consults it.
-+			cliInstallAction.SetVisible(false)
- 			cliInstallAction.SetEnabled(!cliInstallRunning)
- 			if cliInstallRunning {
- 				cliInstallAction.SetText("Installing CLI…")
+-func (AppService) Info() AppInfo { return AppInfo{Version: version.Number, Year: time.Now().Year()} }
++func (AppService) Info() AppInfo { return AppInfo{Version: version.Display(), Year: time.Now().Year()} }
+ func (AppService) OpenURL(url string) {
+ 	// Only the fixed docs and legal links are opened from the frontend.
+-	if strings.HasPrefix(url, "https://docs.pangolin.net/") || strings.HasPrefix(url, "https://pangolin.net/") {
++	if url == "https://ztarc.io" || url == "https://github.com/ztarc/ztarc-windows" {
+ 		openURL(url)
+ 	}
+ }
+diff --git a/ui/state.go b/ui/state.go
+--- a/ui/state.go
++++ b/ui/state.go
+@@ -184,7 +184,7 @@
+ 	in := menuInputs{
+ 		Onboarding:         onboardingNeeded(),
+ 		Now:                time.Now(),
+-		Version:            version.Number,
++		Version:            version.Display(),
+ 		Year:               time.Now().Year(),
+ 		CheckUpdateVisible: config.CheckForUpdatesButtonEnabled(),
+ 	}

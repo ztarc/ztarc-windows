@@ -29,18 +29,23 @@ It is aggregated with the program, not part of it; its licence ships beside it.
 ```bash
 git submodule update --init
 make build          # → build/ZTARC.exe
-make version        # 0.14.0.1
+make version        # 0.15.1.1
 make icons          # regenerate brand/icons from the logo (rarely needed)
 make upstream-version
 ```
 
 `make msi` exists but only runs on Windows — see Installer.
 
-Requires Go ≥ 1.25 and nothing else. **No Windows machine, VM, or Windows
-container is involved**: the client is pure Go (no cgo — the Win32 API is reached
-through `tailscale/walk` and `golang.org/x/sys/windows`, both pure Go), so
-`GOOS=windows GOARCH=amd64` cross-compiles it on Linux. About 25 seconds from a
-cold module cache. Rebuilds are byte-identical.
+Requires Go ≥ 1.26 and Node.js 22 with npm. The UI now uses Wails v3 and
+React; `npm ci` installs the locked frontend dependencies, then TypeScript and
+Vite build the assets embedded in the executable. The `production` build tag
+turns off Wails' development server and developer tools.
+
+The executable cross-compiles on Linux with `GOOS=windows GOARCH=amd64`.
+No Windows machine or container is needed to compile it. The MSI and runtime
+checks still require Windows. Wails generates the icon/manifest resources with
+its expected resource IDs and VERSIONINFO in one resource object. The Wails
+generator is pinned in `scripts/build-exe.sh` and runs without cgo on Linux.
 
 ```
 build/ZTARC.exe: PE32+ executable for MS Windows 6.01 (GUI), x86-64
@@ -53,7 +58,7 @@ moving to a new upstream release is a checkout, not a merge against our own
 edits. Everything happens in a staged copy under `build/src`:
 
 ```
-upstream/  ──stage──▶  build/src  ──▶  audit  ──▶  go build
+upstream/  ──stage──▶  build/src  ──▶  audit  ──▶  npm build → go build
              patches → sed → overrides → assets
 ```
 
@@ -61,16 +66,17 @@ Four layers, ordered from most to least tolerant of upstream drift:
 
 | Layer | Where | For |
 |---|---|---|
-| `brand/patches/*.patch` | applied first, against pristine upstream | structural removals — the hosted-service button, dead legal links, the upstream CLI installer entry |
-| `brand/rules.sed` | every `.go` file | names, URLs, pipe and log identifiers |
+| `brand/patches/*.patch` | applied first, against pristine upstream | structural removals — the hosted-service choice, dead legal links, the upstream CLI installer entry |
+| `brand/rules.sed` | Go and frontend source files | names, URLs, pipe and log identifiers |
 | `brand/overrides/` | whole files | `version/version.go`, `updater/constants.go`, the manifest, the `.wxs` |
-| `brand/icons/` | copied over `icons/` | tray icons and wordmark |
+| `brand/icons/` | copied over `icons/` | embedded tray icons, app icon and wordmark |
 
 **`scripts/audit-brand.sh` is the guard, and it is the reason this is safe.** A
 sed rule that stops matching after an upstream bump fails silently — nothing
 errors, and a ZTARC-named binary greets people under the old name. The audit
-turns that into a failed build. It has exactly two exemptions, each with its
-reason written beside it in the script.
+turns that into a failed build. Its exemptions cover dependency import paths
+and the unreachable upstream CLI installer/UI; their reasons are written beside
+them in the script.
 
 Two things it deliberately does not touch:
 
@@ -102,10 +108,10 @@ read back out by `scripts/rebrand.sh` for the installer and the executable's
 own properties, so those cannot drift from it.
 
 ```
-Upstream = "0.14.0"   the fosrl/windows tag this is built from
+Upstream = "0.15.1"   the fosrl/windows tag this is built from
 Build    = "1"        ZTARC releases against that same upstream version
-                      → version.Number  "0.14.0.1"   (updater, MSI, filenames)
-                      → version.Display "0.14.0 (ztarc.1)"  (what a person sees)
+                      → version.Number  "0.15.1.1"   (updater, MSI, filenames)
+                      → version.Display "0.15.1 (ztarc.1)"  (what a person sees)
 ```
 
 Four components on purpose: `updater/versions.go` compares component by
@@ -128,12 +134,16 @@ git add upstream brand/overrides/version/version.go && git commit
 ## Installer
 
 `make build` produces an executable, not an installer, and running that
-executable directly is not a supported deployment. Two things only the MSI does:
+executable directly is not a supported deployment. The MSI prepares the Windows installation:
 
 - **Registers the `ZTARCManager` service.** Creating a WinTun adapter needs
   administrator rights; without the service the tunnel cannot come up.
-- **Places `icons/` next to the executable.** The tray icon and the login
-  window's word mark are read from disk at runtime, not embedded — see below.
+- **Installs WebView2 when missing.** The Wails UI requires Microsoft’s
+  Evergreen WebView2 Runtime. `scripts/fetch-webview2.ps1` downloads the
+  bootstrapper from Microsoft and requires a valid Microsoft Authenticode
+  signature before it is staged and bundled in the MSI.
+- **Places `icons/` and licence notices next to the executable.** UI assets
+  are also embedded, so copied executables retain their branding.
 
 **The MSI is built by `.github/workflows/msi.yml` on a Windows runner, and it
 cannot be built here.** That is not a preference. WiX ships as a .NET tool and
@@ -191,8 +201,8 @@ expire after 90 days. Tagging publishes the installer as a release asset
 instead — a permanent public URL on a public repository:
 
 ```bash
-make version                      # 0.14.0.1 — version.go is the source of truth
-git tag v0.14.0.1
+make version                      # 0.15.1.1 — version.go is the source of truth
+git tag v0.15.1.1
 git push --tags
 ```
 
@@ -212,25 +222,19 @@ not the place to take on a supply-chain dependency for convenience. The workflow
 token is read-only during builds. A separate publish job has write permission
 and runs only after a successful signed build from a release tag push.
 
-## Why the tray icon is a file, not a resource
+## Embedded UI branding
 
-The icon compiled into `ZTARC.exe` is only the one Explorer shows for the file
-itself. The **tray** icon, the two connection states, and the login window's word
-mark are loaded at runtime from `GetIconsPath()` — upstream's
-`%PROGRAMFILES%\<AppName>\icons`. Copy the `.exe` somewhere on its own and it
-runs with a blank tray icon and an empty login header, which reads as a broken
-build rather than a missing folder.
+Starting with upstream 0.15.1, tray icons are embedded from `icons/`, and the
+onboarding wordmarks and app icon are bundled by Vite. `scripts/rebrand.sh`
+copies the ZTARC assets before either build, and `scripts/audit-brand.sh` checks
+both text branding and those assets against `brand/icons/`.
 
-`brand/overrides/config/icons_path.go` makes it look beside the executable first.
-For an installed client that is the same directory, so nothing about a real
-installation changes; what it buys is that the build output can be copied to a
-test VM as-is. Only image files are read through that path, never a DLL, so it is
-not a search order that code can be planted in.
+`brand/icons/app_icon.png` is the 256px frame of the committed connected icon.
+`make icons` regenerates it along with the ICO files and wordmarks.
 
-That substitution is one of the entries `scripts/audit-brand.sh` asserts must
-still be present. A rule that stops matching leaves no upstream name behind to
-find, so the forbidden-word check cannot catch it — the tree would compile, still
-say ZTARC everywhere, and silently lose the fix.
+The installer continues to ship the existing icon files for compatibility.
+`brand/overrides/config/icons_path.go` retains the adjacent-file fallback for
+any code that still uses `GetIconsPath()`.
 
 ## What still needs Windows
 
