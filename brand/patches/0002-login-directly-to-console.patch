@@ -1,0 +1,150 @@
+Start ZTARC login immediately with the default console and retry without asking for a URL.
+
+diff --git a/ui/login.go b/ui/login.go
+--- a/ui/login.go
++++ b/ui/login.go
+@@ -161,19 +161,13 @@
+ }
+ 
+ // loginOpen starts a session for a newly shown sheet. renewHostname is the
+-// server of an account to log in to again, or "" to add an account. Renewing,
+-// or a server set by the administrator, starts the login right away.
++// server of an account to log in to again, or "" to add an account. Login starts
++// right away using the ZTARC console, renewal host, or administrator-set server.
+ func loginOpen(renewHostname string) LoginView {
+ 	loginEnd()
+ 
+-	s := &loginSession{selfHosted: true, serverURL: config.DefaultHostname}
+-	if accountManager != nil {
+-		if active, _ := accountManager.ActiveAccount(); active != nil && active.Hostname != cloudHostname {
+-			// Offer the current server for another self-hosted account.
+-			s.serverURL = active.Hostname
+-		}
+-	}
+-	autoStart := ""
++	s := &loginSession{fixedHost: true, selfHosted: true, serverURL: config.DefaultHostname}
++	autoStart := config.DefaultHostname
+ 	if h := normalizeURL(renewHostname); h != "" {
+ 		s.renewing = true
+ 		s.fixedHost = true
+diff --git a/ui/frontend/src/prefs/AddAccountSheet.tsx b/ui/frontend/src/prefs/AddAccountSheet.tsx
+--- a/ui/frontend/src/prefs/AddAccountSheet.tsx
++++ b/ui/frontend/src/prefs/AddAccountSheet.tsx
+@@ -1,11 +1,10 @@
+ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+ import { LoginService, type LoginView } from "@bindings";
+-import { Button, Sheet, Spinner, TextField, cx } from "../components/controls";
++import { Button, Sheet, Spinner, cx } from "../components/controls";
+ import { report, useEvent } from "../lib";
+ 
+-// The add-account sheet, as in the macOS app's AddAccountSheet: choose a
+-// server, approve the code in the browser, done. Renewing an account skips the
+-// server choice.
++// Login starts immediately against the default console or the existing account
++// server. The sheet shows browser approval and allows retrying a failed login.
+ 
+ // Steps cross-fade with a blur and the sheet eases to its new height, like the
+ // macOS sheet's `.smooth(duration: 0.3)`.
+@@ -14,18 +13,8 @@
+ const codeFont = '"Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace';
+ 
+ 
+-/** Trims, adds https:// when there is no scheme, and strips surrounding slashes. */
+-function normalizeServerURL(text: string): string | null {
+-  const trimmed = text.trim();
+-  if (!trimmed) return null;
+-  const withScheme = trimmed.includes("://") ? trimmed : `https://${trimmed}`;
+-  const url = withScheme.replace(/^\/+|\/+$/g, "");
+-  return url || null;
+-}
+-
+ export function AddAccountSheet({ renewHostname, onClose }: { renewHostname: string; onClose: () => void }) {
+   const [view, setView] = useState<LoginView | null>(null);
+-  const [serverURL, setServerURL] = useState("https://console.ztarc.io");
+   const [copied, setCopied] = useState(false);
+   const session = useRef(0);
+ 
+@@ -39,7 +28,6 @@
+           return;
+         }
+         setView(v);
+-        if (v.serverUrl) setServerURL(v.serverUrl);
+       }),
+     );
+     // Closing the sheet cancels a login that hasn't finished.
+@@ -52,13 +40,11 @@
+     if (v.session === session.current) setView(v);
+   });
+ 
+-  // Until the backend answers, a renewal shows the spinner, never the server choice.
+-  const step = view?.step ?? (renewHostname ? "loading" : "server");
+-  const fixedHost = view?.fixedHost ?? !!renewHostname;
++  // Never flash the server step while the backend starts the login.
++  const step = view?.step ?? "loading";
+   const renewing = view?.renewing ?? !!renewHostname;
+-  const host = view?.host ?? "the server";
+-  const normalizedURL = normalizeServerURL(serverURL);
+-  const canContinue = normalizedURL !== null;
++  const host = view?.host ?? "console.ztarc.io";
++  const serverURL = view?.serverUrl || renewHostname || "https://console.ztarc.io";
+ 
+   // The sheet closes itself shortly after logging in.
+   useEffect(() => {
+@@ -68,8 +54,7 @@
+   }, [step, onClose]);
+ 
+   const continueLogin = () => {
+-    if (!canContinue) return;
+-    report(LoginService.Start(normalizedURL!));
++    report(LoginService.Start(serverURL));
+   };
+   const copyCode = () => {
+     report(LoginService.CopyCode());
+@@ -86,15 +71,7 @@
+     case "server":
+       content = (
+         <div className="flex flex-col gap-4">
+-          <Header title="Add Account" subtitle="Log in to your organization's ZTARC server." />
+-          <TextField
+-            aria-label="Server URL"
+-            autoFocus
+-            className="w-full"
+-            placeholder="https://console.ztarc.io"
+-            value={serverURL}
+-            onChange={(e) => setServerURL(e.target.value)}
+-          />
++          <Header title={renewing ? "Log In Again" : "Add Account"} subtitle={`Log in to ${host}.`} />
+           {view?.error && (
+             <div className="flex items-start gap-1.5 text-[12px] text-mac-danger">
+               <WarningIcon />
+@@ -165,7 +142,6 @@
+       break;
+   }
+ 
+-  const showBack = step !== "server" && step !== "success" && !fixedHost;
+   return (
+     <Sheet
+       width={440}
+@@ -177,11 +153,6 @@
+       }}
+       footer={
+         <>
+-          {showBack && (
+-            <Button size="large" onClick={() => report(LoginService.Back())}>
+-              Back
+-            </Button>
+-          )}
+           <span className="flex-1" />
+           {step === "success" ? (
+             <Button size="large" variant="prominent" type="submit">
+@@ -193,8 +164,8 @@
+                 Cancel
+               </Button>
+               {step === "server" && (
+-                <Button size="large" variant="prominent" type="submit" disabled={!canContinue}>
+-                  Continue
++                <Button size="large" variant="prominent" type="submit">
++                  Try Again
+                 </Button>
+               )}
+             </>

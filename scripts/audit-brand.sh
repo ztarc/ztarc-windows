@@ -65,8 +65,13 @@ REQUIRED=(
     # nothing — build/src sits inside this work tree, so it resolved paths
     # against the repository root — and every build since had shipped the cloud
     # button and the dead legal links. Nothing else noticed for days.
-    "ui/login.go|serverURL: config.DefaultHostname|new accounts would not default to the ZTARC console"
-    "ui/frontend/src/prefs/AddAccountSheet.tsx|useState\(\"https://console.ztarc.io\"\)|the server input would not default to the console"
+    "ui/login.go|fixedHost: true, selfHosted: true, serverURL: config.DefaultHostname|new accounts would not use a fixed ZTARC console"
+    "ui/login.go|autoStart := config.DefaultHostname|new accounts would ask for a server instead of starting login"
+    "ui/menu.go|strings.EqualFold.*ztarc onboarding|the internal onboarding organization would not be recognized"
+    "ui/state.go|if hiddenOrganization\(o.Name\)|the internal onboarding organization would appear in the menu and count"
+    "ui/state.go|if !hiddenOrganization\(org.Name\)|the internal onboarding organization would appear as the current menu label"
+    "ui/actions.go|if hiddenOrganization\(org.Name\)|stale menu requests could select the internal onboarding organization"
+    "ui/frontend/src/prefs/AddAccountSheet.tsx|const step = view\?.step \?\? \"loading\"|the login sheet would flash the server step before login starts"
     "ui/frontend/src/prefs/AboutTab.tsx|urls.source.*Source code \(AGPL-3\)|the About tab would not offer corresponding source"
     "ui/menu.go|item\(menuIDSource, \"Source code \(AGPL-3\)\"|the tray would not offer corresponding source"
     "ui/actions.go|openURL\(urlSource\)|the tray source link would not work"
@@ -84,6 +89,7 @@ REQUIRED=(
 FORBIDDEN=(
     "ui/frontend/src/prefs/AddAccountSheet.tsx|Terms of Service|ZTARC has no terms page"
     "ui/frontend/src/prefs/AddAccountSheet.tsx|Radio|the server sheet would offer a hosted-service choice"
+    "ui/frontend/src/prefs/AddAccountSheet.tsx|TextField|the login sheet would ask for a server URL"
     "ui/frontend/src/prefs/AboutTab.tsx|Privacy Policy|ZTARC has no privacy page"
     "ui/frontend/src/onboarding/OnboardingWindow.tsx|urls.terms|onboarding would link to a nonexistent terms page"
     "ui/frontend/src/onboarding/OnboardingWindow.tsx|urls.privacy|onboarding would link to a nonexistent privacy page"

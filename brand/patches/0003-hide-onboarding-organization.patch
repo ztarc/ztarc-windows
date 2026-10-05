@@ -1,0 +1,52 @@
+Hide the internal onboarding organization from the tray and reject attempts to select it.
+
+diff --git a/ui/menu.go b/ui/menu.go
+--- a/ui/menu.go
++++ b/ui/menu.go
+@@ -498,6 +498,11 @@
+ 	}
+ }
+ 
++// The onboarding organization is internal and must not be offered in the UI.
++func hiddenOrganization(name string) bool {
++	return strings.EqualFold(strings.TrimSpace(name), "ztarc onboarding")
++}
++
+ func orgSubmenu(in menuInputs) MenuItem {
+ 	var sub []MenuItem
+ 	if len(in.Orgs) == 0 {
+diff --git a/ui/state.go b/ui/state.go
+--- a/ui/state.go
++++ b/ui/state.go
+@@ -236,11 +236,16 @@
+ 			in.ServerInfo = msi
+ 		}
+ 		for _, o := range authManager.Organizations() {
++			if hiddenOrganization(o.Name) {
++				continue
++			}
+ 			in.Orgs = append(in.Orgs, menuOrg{ID: o.Id, Name: o.Name})
+ 		}
+ 		if org := authManager.CurrentOrg(); org != nil {
+ 			in.CurrentOrgID = org.Id
+-			in.CurrentOrgName = org.Name
++			if !hiddenOrganization(org.Name) {
++				in.CurrentOrgName = org.Name
++			}
+ 		}
+ 		in.ExitNodes, in.ActiveExitNodeID = currentExitNodes(in.CurrentOrgID, rawPhase == phaseRunning)
+ 		if user := authManager.CurrentUser(); user != nil {
+diff --git a/ui/actions.go b/ui/actions.go
+--- a/ui/actions.go
++++ b/ui/actions.go
+@@ -207,6 +207,10 @@
+ 		if org.Id != orgID {
+ 			continue
+ 		}
++		// Reject stale menu requests for the internal onboarding organization.
++		if hiddenOrganization(org.Name) {
++			return
++		}
+ 		found = true
+ 		org := org
+ 		if err := authManager.SelectOrganization(&org); err != nil {
