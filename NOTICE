@@ -32,6 +32,10 @@ Modifications by ZTARC, beginning 23 August 2026:
   * Icons are now looked for beside the executable before the installation
     directory.
   * Automatic update checks default to off.
+  * Updated to upstream 0.15.1 on 5 October 2026; adapted the Wails/React UI
+    with embedded ZTARC assets, server-only login and source links.
+  * Bundled Microsoft’s signed WebView2 Evergreen bootstrapper to install
+    the runtime when missing.
 
 None of these edits are made to the upstream tree itself. `upstream/` is a
 pristine git submodule pinned to a released tag; every change above is expressed
@@ -59,8 +63,11 @@ Compiled into ZTARC.exe:
 
   github.com/fosrl/newt        AGPL-3      Copyright (c) Fossorial, Inc.
   github.com/fosrl/olm         AGPL-3      Copyright (c) Fossorial, Inc.
-  github.com/tailscale/walk    BSD-3       Copyright (c) 2010 The Walk Authors
-  github.com/tailscale/win     BSD-3
+  github.com/wailsapp/wails/v3 MIT
+  git.sr.ht/~jackmordaunt/go-toast/v2 MIT
+  React / React DOM           MIT
+  @wailsio/runtime             MIT
+  @tanstack/react-virtual      MIT
   github.com/Microsoft/go-winio  MIT       Copyright (c) Microsoft Corporation
   github.com/zalando/go-keyring  MIT
   github.com/pkg/browser       BSD-2
@@ -80,3 +87,10 @@ Software only via the Permitted API", which is how this client uses it. It is an
 independent, unmodified work merely aggregated with this program, not part of
 it. Its full licence is in third-party/wintun-LICENSE.txt and is installed
 beside the executable.
+
+  MicrosoftEdgeWebview2Setup.exe   Copyright (c) Microsoft Corporation.
+
+The unmodified, signed Evergreen WebView2 bootstrapper is downloaded from
+Microsoft. It installs the Microsoft WebView2 Runtime under Microsoft's terms;
+see https://developer.microsoft.com/microsoft-edge/webview2/.
+Frontend dependencies are pinned in upstream/ui/frontend/package-lock.json.

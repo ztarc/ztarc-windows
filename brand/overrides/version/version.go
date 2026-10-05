@@ -16,9 +16,9 @@ package version
 const (
 	// Upstream is the fosrl/windows tag this build is based on. It must match
 	// the commit the upstream/ submodule is pinned to.
-	Upstream = "0.14.0"
+	Upstream = "0.15.1"
 	// Build counts ZTARC releases made against that same upstream version.
-	Build = "2"
+	Build = "1"
 
 	Number = Upstream + "." + Build
 )

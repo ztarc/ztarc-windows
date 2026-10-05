@@ -28,7 +28,7 @@ DST="$ROOT/build/src"
 rm -rf "$DST"
 mkdir -p "$(dirname "$DST")"
 cp -a "$SRC" "$DST"
-rm -rf "$DST/.git" "$DST/build" "$DST/rsrc.syso"
+rm -rf "$DST/.git" "$DST/build" "$DST/rsrc.syso" "$DST/resource.syso" "$DST/ui/frontend/node_modules" "$DST/ui/frontend/dist"
 
 # 1. Structural changes.
 #
@@ -45,9 +45,9 @@ for patch in "$ROOT"/brand/patches/*.patch; do
     git -C "$ROOT" apply --directory="build/src" -p1 "$patch"
 done
 
-# 2. String substitutions across every Go file.
+# 2. String substitutions across Go and frontend source files.
 echo "sed    brand/rules.sed"
-find "$DST" -name '*.go' -print0 | xargs -0 sed -i -f "$ROOT/brand/rules.sed"
+find "$DST" -type f \( -name '*.go' -o -name '*.ts' -o -name '*.tsx' -o -name '*.css' -o -name '*.html' -o -name '*.json' \) -print0 | xargs -0 sed -i -f "$ROOT/brand/rules.sed"
 
 # 3. Files that are ours outright.
 echo "override"
@@ -60,6 +60,14 @@ rm -f "$DST/pangolin.manifest" "$DST/pangolin.wxs"
 # 4. Assets, and the version the installer must agree with.
 echo "assets"
 cp "$ROOT"/brand/icons/* "$DST/icons/"
+cp "$ROOT/brand/icons/word_mark_black.png" "$DST/ui/frontend/src/assets/ztarc_logo_light.png"
+cp "$ROOT/brand/icons/word_mark_white.png" "$DST/ui/frontend/src/assets/ztarc_logo_dark.png"
+cp "$ROOT/brand/icons/app_icon.png" "$DST/ui/frontend/src/assets/app_icon.png"
+cp "$ROOT/brand/icons/app_icon.png" "$DST/ui/frontend/src/assets/tray_icon.png"
+rm -f "$DST/ui/frontend/src/assets/pangolin_logo_light.png" "$DST/ui/frontend/src/assets/pangolin_logo_dark.png" "$DST/ui/frontend/src/assets/app_icon.svg"
+# Mock data is excluded from production; keeping it would hide stale menu links
+# from the audit. Developers can use upstream's mocks when working on upstream.
+rm -rf "$DST/ui/frontend/src/mocks"
 
 # The licence travels with the binary. AGPL-3 conveys with the program, and
 # wintun's terms forbid removing its notices — so both are installed beside the
@@ -85,28 +93,21 @@ sed "s|@@VERSION@@|$full|" "$ROOT/brand/overrides/ztarc.wxs" > "$DST/ztarc.wxs"
 # VERSIONINFO for the .exe itself: the number a person finds under Properties →
 # Details when they right-click the file, which is the first thing anyone checks
 # when asked "which build are you running?".
-IFS=. read -r major minor patchv rev <<< "$full"
 cat > "$DST/versioninfo.json" <<JSON
 {
-  "FixedFileInfo": {
-    "FileVersion":    {"Major": $major, "Minor": $minor, "Patch": $patchv, "Build": $rev},
-    "ProductVersion": {"Major": $major, "Minor": $minor, "Patch": $patchv, "Build": $rev},
-    "FileFlagsMask": "3f", "FileFlags": "00", "FileOS": "040004",
-    "FileType": "01", "FileSubType": "00"
-  },
-  "StringFileInfo": {
-    "CompanyName":      "ZTARC",
-    "FileDescription":  "ZTARC",
-    "FileVersion":      "$full",
-    "InternalName":     "ZTARC.exe",
-    "LegalCopyright":   "© ZTARC",
-    "OriginalFilename": "ZTARC.exe",
-    "ProductName":      "ZTARC",
-    "ProductVersion":   "$full"
-  },
-  "VarFileInfo": {"Translation": {"LangID": "0409", "CharsetID": "04B0"}},
-  "IconPath":     "icons/icon-orange.ico",
-  "ManifestPath": "ztarc.manifest"
+  "fixed": {"file_version": "$full", "product_version": "$full", "type": "app"},
+  "info": {
+    "0409": {
+      "CompanyName": "ZTARC",
+      "FileDescription": "ZTARC",
+      "FileVersion": "$full",
+      "InternalName": "ZTARC.exe",
+      "LegalCopyright": "© ZTARC",
+      "OriginalFilename": "ZTARC.exe",
+      "ProductName": "ZTARC",
+      "ProductVersion": "$full"
+    }
+  }
 }
 JSON
 

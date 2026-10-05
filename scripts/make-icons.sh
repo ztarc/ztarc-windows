@@ -76,4 +76,6 @@ magick "$WORDMARK" -trim +repage \
     -resize 240x60 -extent 240x60 "$OUT/word_mark_black.png"
 cp "$OUT/word_mark_black.png" "$OUT/word_mark_white.png"
 
+magick "$OUT/icon-orange.ico[0]" "$OUT/app_icon.png"
+
 magick identify "$OUT"/*
