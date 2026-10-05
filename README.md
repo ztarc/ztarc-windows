@@ -95,8 +95,11 @@ Two things it deliberately does not touch:
 | Tunnel adapter | `Pangolin` | `ZTARC` |
 | Named pipes | `\\.\pipe\pangolin-*` | `\\.\pipe\ztarc-*` |
 | Log | `pangolin.log` | `ztarc.log` |
-| Sign-in | cloud button, or a server URL | server URL only, prefilled `https://console.ztarc.io` |
+| Sign-in | cloud button, or a server URL | direct login to `https://console.ztarc.io`, without a URL prompt |
 | Links | docs / terms / privacy | Documentation only, `https://ztarc.io` |
+
+The internal `ztarc onboarding` organization is hidden from the organization menu
+and its count, and cannot be selected through the client menu.
 
 The pipe and adapter names are not cosmetic: sharing them with an installed
 Pangolin client would put two processes on one pipe.
