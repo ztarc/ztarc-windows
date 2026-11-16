@@ -1,3 +1,3 @@
 [submodule "upstream"]
 	path = upstream
-	url = https://github.com/fosrl/windows.git
+	url = https://github.com/fosrl/windows-linux.git

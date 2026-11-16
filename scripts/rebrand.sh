@@ -25,6 +25,19 @@ DST="$ROOT/build/src"
     exit 1
 }
 
+# Verify the Windows-prefixed release tag rather than an ambiguous describe tag.
+. "$ROOT/scripts/version.sh"
+full="$(ztarc_version "$ROOT/brand/overrides/version/version.go")"
+expected="windows-${full%.*}"
+[ "$(git -C "$SRC" rev-parse HEAD)" = "$(git -C "$SRC" rev-parse "refs/tags/$expected^{commit}")" ] || {
+    echo "upstream must be pinned to $expected" >&2
+    exit 1
+}
+[ -z "$(git -C "$SRC" status --porcelain --untracked-files=no)" ] || {
+    echo "upstream must be clean before staging" >&2
+    exit 1
+}
+
 rm -rf "$DST"
 mkdir -p "$(dirname "$DST")"
 cp -a "$SRC" "$DST"

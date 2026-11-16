@@ -1,12 +1,12 @@
 # ZTARC Windows Client
 
-The Windows client for ZTARC, built from [`fosrl/windows`](https://github.com/fosrl/windows)
+The Windows client for ZTARC, built from [`fosrl/windows-linux`](https://github.com/fosrl/windows-linux)
 — the upstream Pangolin desktop client — pinned here as the `upstream/` submodule
 and rebranded at build time.
 
 ## Licence
 
-**AGPL-3.** This is a modified build of [`fosrl/windows`](https://github.com/fosrl/windows),
+**AGPL-3.** This is a modified build of [`fosrl/windows-linux`](https://github.com/fosrl/windows-linux),
 whose LICENSE states that files without a licence header are AGPL-3 — and no
 file in that tree carries one. A derivative is therefore AGPL-3 too, and anyone
 we give a binary to is entitled to the corresponding source: this repository at
@@ -29,7 +29,7 @@ It is aggregated with the program, not part of it; its licence ships beside it.
 ```bash
 git submodule update --init
 make build          # → build/ZTARC.exe
-make version        # 0.15.1.1
+make version        # 0.16.0.1
 make icons          # regenerate brand/icons from the logo (rarely needed)
 make upstream-version
 ```
@@ -111,10 +111,10 @@ read back out by `scripts/rebrand.sh` for the installer and the executable's
 own properties, so those cannot drift from it.
 
 ```
-Upstream = "0.15.1"   the fosrl/windows tag this is built from
+Upstream = "0.16.0"   the fosrl/windows tag this is built from
 Build    = "1"        ZTARC releases against that same upstream version
-                      → version.Number  "0.15.1.1"   (updater, MSI, filenames)
-                      → version.Display "0.15.1 (ztarc.1)"  (what a person sees)
+                      → version.Number  "0.16.0.1"   (updater, MSI, filenames)
+                      → version.Display "0.16.0 (ztarc.1)"  (what a person sees)
 ```
 
 Four components on purpose: `updater/versions.go` compares component by
@@ -128,7 +128,7 @@ for upstream to move. That is a limit of MSI, not of this numbering.
 `Upstream` must match the tag `upstream/` is pinned to. To move:
 
 ```bash
-git -C upstream fetch --tags && git -C upstream checkout <tag>
+git -C upstream fetch --tags && git -C upstream checkout windows-0.16.0
 # update Upstream in brand/overrides/version/version.go, reset Build to "1"
 make build          # the audit and the patches will say if anything drifted
 git add upstream brand/overrides/version/version.go && git commit
@@ -204,8 +204,8 @@ expire after 90 days. Tagging publishes the installer as a release asset
 instead — a permanent public URL on a public repository:
 
 ```bash
-make version                      # 0.15.1.1 — version.go is the source of truth
-git tag v0.15.1.1
+make version                      # 0.16.0.1 — version.go is the source of truth
+git tag v0.16.0.1
 git push --tags
 ```
 
@@ -255,8 +255,41 @@ KVM — a real Windows VM inside a container, lighter to manage than VirtualBox.
 ## Auto-update is off
 
 `static.ztarc.io` does not exist and no release signing key has been generated,
-so `DefaultAutoUpdateChecksEnabled` ships `false` — a client polling a host that
+so checks, downloads and staged installation are disabled in the staged source,
+even when machine or user settings enable updates. `DefaultAutoUpdateChecksEnabled` also ships `false` — a client polling a host that
 does not resolve would put a recurring error in front of every user. Turning it
 on means standing up that host, running `upstream/scripts/generate-keys.sh`
 (needs `signify`), and pasting the public key into
 `brand/overrides/updater/constants.go`.
+
+
+## 0.16.0.1 upgrade candidate
+
+Pinned source: `fosrl/windows-linux`, tag `windows-0.16.0`, commit
+`b805ba7fe28bfa6e3e372a581ee61bb208e0d7cf`. The Go module remains
+`github.com/fosrl/windows`; Go 1.26 and Wails beta.26 remain unchanged.
+Embedded dependencies follow the upstream lock: Newt 1.19.0 / Olm 1.10.2.
+The build passes Olm's separate version through `version.OlmVersionOverride`.
+The updater constants override retains every field required by this tag.
+
+Before publishing, run the manual signed Windows workflow and record publisher,
+timestamp, extracted EXE verification and final SHA256SUMS. On real Windows,
+verify clean install and upgrade from signed 0.15.1.1, WebView2, WinTun,
+ZTARCManager, existing config/DPAPI credentials, tray after reboot, connect at
+login, sleep/wake, interface changes, fingerprint recovery, organization and
+exit-node selection. Test rollback by uninstalling the candidate and reinstalling
+the retained signed 0.15.1.1 MSI; preserve a VM checkpoint and verify login and
+traffic after recovery. These checks require Windows and are release gates.
+
+Keep auto-update disabled. Before a production tag push (which publishes), the
+console must pin Windows distribution metadata/downloads to a rollbackable tag
+as required by sections B3/B4 of the production upgrade plan. Local EXE builds
+are unsigned development artifacts and do not establish those release gates.
+
+Local verification on 16 November 2026: branding audit and Windows amd64 EXE
+cross-build pass; embedded binary metadata confirms Newt 1.19.0 / Olm 1.10.2.
+`npm audit` reports two high-severity findings in the upstream frontend build
+tools (`vite` 8.3.1 and `source-map-js` 1.2.1); `npm audit --omit=dev`
+reports zero findings. The upstream lock is retained;
+review/remediate these before release. No signed MSI or Windows runtime results
+are claimed by this local build.

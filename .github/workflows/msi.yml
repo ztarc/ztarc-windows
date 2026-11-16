@@ -84,6 +84,13 @@ jobs:
       - name: Fetch wintun.dll
         run: ./scripts/fetch-wintun.sh
 
+      # actions/checkout may fetch only the submodule commit, without its tags.
+      # The staging guard verifies that commit against the explicit Windows tag.
+      - name: Fetch pinned Windows release tag
+        run: |
+          version="$(. ./scripts/version.sh && ztarc_version brand/overrides/version/version.go)"
+          git -C upstream fetch --depth=1 origin "refs/tags/windows-${version%.*}:refs/tags/windows-${version%.*}"
+
       - name: Stage the ZTARC branding
         run: ./scripts/rebrand.sh
 
@@ -285,7 +292,7 @@ jobs:
           upstream="$(git -C upstream describe --tags --always)"
 
           cat > notes.md <<NOTES
-          ZTARC Windows client **$version**, built from upstream \`fosrl/windows\` $upstream.
+          ZTARC Windows client **$version**, built from upstream \`fosrl/windows-linux\` $upstream.
 
           ## Install
 

@@ -4,7 +4,7 @@ package version
 
 // The ZTARC client tracks upstream's version and adds a build counter of its
 // own, because the two move independently: a rebranding fix can ship without
-// fosrl/windows changing at all.
+// fosrl/windows-linux changing at all.
 //
 // Number carries four components — upstream's three plus our counter — and that
 // is deliberate. updater/versions.go compares versions component by component
@@ -14,9 +14,9 @@ package version
 // installed one. That is a limit of MSI, not of this numbering; a ZTARC-only fix
 // has to be uninstalled and reinstalled, or wait for upstream to move.
 const (
-	// Upstream is the fosrl/windows tag this build is based on. It must match
+	// Upstream is the fosrl/windows-linux tag this build is based on. It must match
 	// the commit the upstream/ submodule is pinned to.
-	Upstream = "0.15.1"
+	Upstream = "0.16.0"
 	// Build counts ZTARC releases made against that same upstream version.
 	Build = "1"
 
