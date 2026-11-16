@@ -1,6 +1,6 @@
 # Windows 0.16.0.1 candidate validation
 
-Date: 16 November 2026. Status: source candidate verified locally; release gates open.
+Date: 16 November 2026. Status: source merged and signed candidate verified; device acceptance gates open.
 Reference: `ztarc-console/deploy/pangolin-1.26.0-production-upgrade-plan.md`, B3/B4.
 
 | Requirement | Evidence / status |
@@ -14,7 +14,7 @@ Reference: `ztarc-console/deploy/pangolin-1.26.0-production-upgrade-plan.md`, B3
 | Local build | `make build` passes frontend typecheck/Vite and Windows amd64 cross-compilation; `file` confirms PE32+ GUI x86-64 |
 | CI tag lookup | Windows build explicitly fetches `windows-${version%.*}` before staging, because submodule checkout may omit tags |
 | Dependency audit | `npm audit --omit=dev`: zero findings; full audit: two high findings in Vite 8.3.1/source-map-js 1.2.1 build tooling; remediation/review pending |
-| Signing and MSI | Pending manual signed Windows workflow; no tag pushed or release published |
+| Signing and MSI | Passed [manual signed run 43830217573](https://github.com/ztarc/ztarc-windows/actions/runs/43830217573) on `c5e5da3e4ef228ae45167b2d23f788813e5e6c92`; EXE/MSI publisher and timestamp verification plus extracted EXE verification succeeded; no tag pushed or release published |
 | W01/W02/W03 | Pending real Windows clean install, upgrade, reboot, network and identity recovery acceptance |
 | Old MSI and downgrade | Pending retained signed 0.15.1.1 MSI and tested uninstall/reinstall with endpoint checkpoint |
 | Distribution B4 / D01 | Pending console pin/cache/download rollback verification before publication |
@@ -26,3 +26,24 @@ Signing changes the hash; release SHA256SUMS must be generated after signing.
 No Windows container is running on this host (`docker ps` is empty), and
 `/dev/kvm` is absent. Windows runtime acceptance cannot be inferred from the
 cross-build. Follow the Windows checklist in README before publication.
+
+
+## GitHub candidate evidence
+
+[PR #4](https://github.com/ztarc/ztarc-windows/pull/4) merged after
+[Windows PR build 43829737678](https://github.com/ztarc/ztarc-windows/actions/runs/43829737678)
+passed EXE compilation and MSI packaging. The authorized manual signed run
+43830217573 used `sign=true` on main and passed every signing/verification step.
+The publish job was skipped. Signed artifacts were downloaded into
+`build/signed-0.16.0.1/`, and `sha256sum -c SHA256SUMS` verified both files.
+
+Final signed artifact hashes:
+
+```
+1c507f617bc6df26caa1cc502f7fa829bb30abc3679f50ebb5440e6acf20a412 *ZTARC.exe
+996ebf1ae3effd45ec145c94bdfdf1c8c0fb2501d99d1c8091614af9505b0656 *ztarc-amd64-0.16.0.1.msi
+```
+
+MSI administrative extraction and signature checks do not establish a working
+service installation, tunnel, upgrade or rollback on an enrolled Windows device.
+Those W01/W02/W03 gates remain open, along with distribution promotion.

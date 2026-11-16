@@ -291,5 +291,6 @@ cross-build pass; embedded binary metadata confirms Newt 1.19.0 / Olm 1.10.2.
 `npm audit` reports two high-severity findings in the upstream frontend build
 tools (`vite` 8.3.1 and `source-map-js` 1.2.1); `npm audit --omit=dev`
 reports zero findings. The upstream lock is retained;
-review/remediate these before release. No signed MSI or Windows runtime results
-are claimed by this local build.
+review/remediate these before release. A manual signed Windows workflow has since passed EXE/MSI signing and packaged
+EXE verification; see `docs/windows-0.16.0.1-validation.md` for the run and hashes.
+Windows device runtime acceptance remains pending.
