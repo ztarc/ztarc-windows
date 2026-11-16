@@ -128,4 +128,22 @@ for pair in "word_mark_black.png:ztarc_logo_light.png" "word_mark_white.png:ztar
     cmp "$ROOT/brand/icons/$original" "$DST/ui/frontend/src/assets/$staged" || exit 1
 done
 
+# Saved configuration must never re-enable the unfinished updater. Require the
+# complete fail-closed body at each entry point, not just a false default.
+for spec in \
+    'config/config.go|AutoUpdateChecksEnabled|return false' \
+    'config/config.go|CheckForUpdatesButtonEnabled|return false' \
+    'config/config.go|AutoDownloadUpdatesEnabled|return false' \
+    'config/config.go|autoDownloadUpdates|return false' \
+    'updater/staged.go|LoadStagedUpdate|return nil' \
+    'updater/downloader.go|checkForUpdate|return nil, nil, nil, errors.New("ZTARC updater is disabled")' \
+    'updater/downloader.go|installStaged|return errors.New("ZTARC updater is disabled")'; do
+    IFS='|' read -r file function expected <<< "$spec"
+    body="$(sed -n "/^func $function(/,/^}/p" "$DST/$file" | sed '1d;$d;/^[[:space:]]*\/\//d;s/^[[:space:]]*//;/^$/d')"
+    [ "$body" = "$expected" ] || {
+        echo "brand audit failed — updater entry $function is not disabled" >&2
+        exit 1
+    }
+done
+
 echo "brand audit clean"

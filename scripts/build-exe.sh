@@ -23,4 +23,4 @@ echo "Compiling icon, manifest and version resources..."
 
 echo "Building Windows executable (GUI mode)..."
 (cd "$SRC" && GOOS=windows GOARCH=amd64 \
-    go build -tags production -trimpath -ldflags="-s -w -H windowsgui" -o ../ZTARC.exe .)
+    go build -tags production -trimpath -ldflags="-s -w -H windowsgui -X github.com/fosrl/windows/version.OlmVersionOverride=$(go list -m -f '{{.Version}}' github.com/fosrl/olm | sed 's/^v//')" -o ../ZTARC.exe .)

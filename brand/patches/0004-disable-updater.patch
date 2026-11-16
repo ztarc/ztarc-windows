@@ -1,0 +1,216 @@
+--- a/config/config.go
++++ b/config/config.go
+@@ -612,21 +612,15 @@
+ // AutoUpdateChecksEnabled returns whether background update checks are enabled
+ // from machine-wide system config. Omitted defaults to true.
+ func AutoUpdateChecksEnabled() bool {
+-	cfg := LoadSystemConfig()
+-	if cfg.AutoUpdateChecksEnabled != nil {
+-		return *cfg.AutoUpdateChecksEnabled
+-	}
+-	return DefaultAutoUpdateChecksEnabled
++	// ZTARC has no signed updater infrastructure; saved settings cannot enable it.
++	return false
+ }
+ 
+ // CheckForUpdatesButtonEnabled returns whether the Check for Updates menu item is
+ // shown. Omitted defaults to true.
+ func CheckForUpdatesButtonEnabled() bool {
+-	cfg := LoadSystemConfig()
+-	if cfg.CheckForUpdatesButtonEnabled != nil {
+-		return *cfg.CheckForUpdatesButtonEnabled
+-	}
+-	return DefaultCheckForUpdatesButtonEnabled
++	// ZTARC has no signed updater infrastructure; saved settings cannot enable it.
++	return false
+ }
+ 
+ // AutoDownloadUpdatesEnabled reports whether the merged machine and per-user
+@@ -635,14 +629,13 @@
+ // machine config alone. The manager service must pass it explicitly, because its own
+ // process environment is the system profile. Omitted defaults to false.
+ func AutoDownloadUpdatesEnabled(localAppData string) bool {
+-	return autoDownloadUpdates(loadMergedConfig(localAppData))
++	// ZTARC has no signed updater infrastructure; saved settings cannot enable it.
++	return false
+ }
+ 
+ func autoDownloadUpdates(cfg *Config) bool {
+-	if cfg != nil && cfg.AutoDownloadUpdatesEnabled != nil {
+-		return *cfg.AutoDownloadUpdatesEnabled
+-	}
+-	return DefaultAutoDownloadUpdatesEnabled
++	// ZTARC has no signed updater infrastructure; saved settings cannot enable it.
++	return false
+ }
+ 
+ // UpdateCheckInterval returns how often automatic update checks run.
+--- a/updater/downloader.go
++++ b/updater/downloader.go
+@@ -80,95 +80,8 @@
+ }
+ 
+ func checkForUpdate(keepSession bool) (*UpdateFound, *winhttp.Session, *winhttp.Connection, error) {
+-	logger.Debug("Updater: checkForUpdate() started (keepSession=%v)", keepSession)
+-	logger.Debug("Updater: Current version: %s, Architecture: %s", version.Number, version.Arch())
+-
+-	// // Allow bypassing official version check for development/testing
+-	// // Set PANGOLIN_ALLOW_DEV_UPDATES=1 to enable updates on unsigned builds
+-	// isOfficial := version.IsRunningOfficialVersion()
+-	// logger.Info("Updater: IsRunningOfficialVersion: %v", isOfficial)
+-	// if !isOfficial {
+-	// 	devMode := os.Getenv("PANGOLIN_ALLOW_DEV_UPDATES") == "1"
+-	// 	logger.Info("Updater: PANGOLIN_ALLOW_DEV_UPDATES: %v", devMode)
+-	// 	if !devMode {
+-	// 		err := errors.New("Build is not official, so updates are disabled")
+-	// 		logger.Error("Updater: %v", err)
+-	// 		return nil, nil, nil, err
+-	// 	}
+-	// 	logger.Info("Updater: Development mode enabled - allowing updates on unsigned build")
+-	// }
+-
+-	logger.Debug("Updater: Creating WinHTTP session with User-Agent: %s", version.UserAgent())
+-	session, err := winhttp.NewSession(version.UserAgent())
+-	if err != nil {
+-		logger.Debug("Updater: Failed to create WinHTTP session: %v", err)
+-		return nil, nil, nil, err
+-	}
+-	logger.Debug("Updater: WinHTTP session created successfully")
+-	defer func() {
+-		if err != nil || !keepSession {
+-			logger.Debug("Updater: Closing WinHTTP session")
+-			session.Close()
+-		}
+-	}()
+-
+-	logger.Debug("Updater: Connecting to update server: %s:%d (HTTPS=%v)", updateServerHost, updateServerPort, updateServerUseHttps)
+-	connection, err := session.Connect(updateServerHost, updateServerPort, updateServerUseHttps)
+-	if err != nil {
+-		logger.Debug("Updater: Failed to connect to update server: %v", err)
+-		return nil, nil, nil, err
+-	}
+-	logger.Debug("Updater: Connected to update server successfully")
+-	defer func() {
+-		if err != nil || !keepSession {
+-			logger.Debug("Updater: Closing connection")
+-			connection.Close()
+-		}
+-	}()
+-
+-	logger.Debug("Updater: Fetching manifest from: %s", latestVersionPath)
+-	response, err := connection.Get(latestVersionPath, true)
+-	if err != nil {
+-		logger.Debug("Updater: Failed to fetch manifest: %v", err)
+-		return nil, nil, nil, err
+-	}
+-	defer response.Close()
+-	logger.Debug("Updater: Manifest response received")
+-
+-	var fileList [1024 * 512] /* 512 KiB */ byte
+-	bytesRead, err := response.Read(fileList[:])
+-	if err != nil && (err != io.EOF || bytesRead == 0) {
+-		logger.Debug("Updater: Failed to read manifest data: %v (bytesRead=%d)", err, bytesRead)
+-		return nil, nil, nil, err
+-	}
+-	logger.Debug("Updater: Read %d bytes from manifest", bytesRead)
+-
+-	logger.Debug("Updater: Parsing manifest file list")
+-	files, err := readFileList(fileList[:bytesRead])
+-	if err != nil {
+-		logger.Debug("Updater: Failed to parse manifest: %v", err)
+-		return nil, nil, nil, err
+-	}
+-	logger.Debug("Updater: Manifest parsed successfully, found %d files", len(files))
+-
+-	logger.Debug("Updater: Searching for update candidate")
+-	updateFound, err := findCandidate(files)
+-	if err != nil {
+-		logger.Debug("Updater: Error finding candidate: %v", err)
+-		return nil, nil, nil, err
+-	}
+-	if updateFound == nil {
+-		logger.Debug("Updater: No update candidate found")
+-	} else {
+-		logger.Debug("Updater: Update candidate found: %s", updateFound.name)
+-		updateFound.manifest = append([]byte(nil), fileList[:bytesRead]...)
+-	}
+-
+-	if keepSession {
+-		logger.Debug("Updater: Keeping session and connection open")
+-		return updateFound, session, connection, nil
+-	}
+-	return updateFound, nil, nil, nil
++	// ZTARC has no signed updater infrastructure; saved settings cannot enable it.
++	return nil, nil, nil, errors.New("ZTARC updater is disabled")
+ }
+ 
+ var updateInProgress = uint32(0)
+@@ -379,34 +292,8 @@
+ // A staged update that fails to install is discarded so it is not retried on every
+ // launch; the next check downloads it again.
+ func installStaged(restartUI bool, run func(msi *tempFile) error) error {
+-	msi, err := prepareStagedMsi()
+-	if err != nil {
+-		logger.Error("Updater: Unable to use staged update: %v", err)
+-		discardStagedFiles()
+-		return err
+-	}
+-	defer msi.Delete()
+-
+-	logger.Info("Updater: Starting MSI installation")
+-	if restartUI {
+-		if err := RelaunchUIAfterUpdate(0); err != nil {
+-			logger.Debug("Updater: Failed to write restart-ui flag file: %v", err)
+-		}
+-	}
+-
+-	err = run(msi)
+-	if err != nil {
+-		logger.Info("Updater: MSI installation failed: %v", err)
+-		if restartUI {
+-			CancelUIRelaunchAfterUpdate()
+-		}
+-		discardStagedFiles()
+-		return err
+-	}
+-	// Flag file left in place so next start can start the UI automatically, then delete the file
+-	logger.Info("Updater: MSI installation completed successfully")
+-	discardStagedFiles()
+-	return nil
++	// ZTARC has no signed updater infrastructure; saved settings cannot enable it.
++	return errors.New("ZTARC updater is disabled")
+ }
+ 
+ // DownloadInBackground downloads, verifies and stages the latest update without installing it.
+--- a/updater/staged.go
++++ b/updater/staged.go
+@@ -177,27 +177,8 @@
+ // LoadStagedUpdate returns the update staged by an earlier download, if it is still
+ // newer than the running version. Anything else in the staged directory is removed.
+ func LoadStagedUpdate() *StagedUpdate {
+-	if !stagedDirTrusted() {
+-		return nil
+-	}
+-	update, err := stagedCandidate()
+-	if err != nil {
+-		logger.Error("Updater: Discarding invalid staged update: %v", err)
+-		discardStagedFiles()
+-		return nil
+-	}
+-	if update == nil {
+-		discardStagedFiles()
+-		return nil
+-	}
+-	info, err := os.Stat(stagedMsiPath())
+-	if err != nil {
+-		logger.Error("Updater: Discarding staged update %s: %v", update.version, err)
+-		discardStagedFiles()
+-		return nil
+-	}
+-	logger.Info("Updater: Found staged update %s", update.version)
+-	return &StagedUpdate{version: update.version, StagedAt: info.ModTime()}
++	// ZTARC has no signed updater infrastructure; saved settings cannot enable it.
++	return nil
+ }
+ 
+ // prepareStagedMsi copies the staged MSI into a SYSTEM-only temp file for msiexec,

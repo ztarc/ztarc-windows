@@ -11,7 +11,7 @@ A MODIFIED VERSION
 ------------------
 
 This is a modified build of the Pangolin Windows client by Fossorial, Inc.
-(https://github.com/fosrl/windows), Copyright (c) 2025 Fossorial, Inc.
+(https://github.com/fosrl/windows-linux), Copyright (c) 2025 Fossorial, Inc.
 
 Upstream states that files without a license header are licensed under AGPL-3,
 and dual-licensing under the Fossorial Commercial License requires a separate
@@ -34,6 +34,9 @@ Modifications by ZTARC, beginning 23 August 2026:
   * Automatic update checks default to off.
   * Updated to upstream 0.15.1 on 5 October 2026; adapted the Wails/React UI
     with embedded ZTARC assets, server-only login and source links.
+  * Updated to upstream windows-0.16.0 on 16 November 2026; retained the
+    upstream dependency lock and disabled checks, downloads and staged installs
+    regardless of saved update settings.
   * Bundled Microsoft’s signed WebView2 Evergreen bootstrapper to install
     the runtime when missing.
 
